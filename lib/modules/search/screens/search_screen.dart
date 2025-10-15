@@ -7,7 +7,7 @@ import 'widgets/search_result_item.dart';
 import 'widgets/search_suggestions.dart';
 
 class SearchScreen extends ConsumerWidget {
-  const SearchScreen({Key? key}) : super(key: key);
+  const SearchScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

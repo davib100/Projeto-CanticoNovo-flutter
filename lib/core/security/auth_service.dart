@@ -1,6 +1,8 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../services/api_client.dart';
 import '../../modules/auth/providers/auth_provider.dart';
 
@@ -54,6 +56,28 @@ class AuthService {
       response['refresh_token'],
     );
   }
+  Future<Map<String, String>> _getOAuthCredentials(AuthProvider provider) async {
+  switch (provider) {
+    case AuthProvider.google:
+      final GoogleSignIn googleSignIn = GoogleSignIn();
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+
+      if (googleUser == null) {
+        throw Exception('Login com Google cancelado pelo usuário');
+      }
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      return {
+        'access_token': googleAuth.accessToken!,
+        'id_token': googleAuth.idToken!,
+      };
+
+    default:
+      throw UnimplementedError('Provedor ${provider.name} não implementado');
+  }
+}
+
 
   Future<void> _storeTokens(String access, String refresh) async {
     await _secureStorage.write(key: 'access_token', value: access);

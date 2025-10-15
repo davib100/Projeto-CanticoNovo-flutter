@@ -8,11 +8,11 @@ class SearchResultItem extends StatelessWidget {
   final VoidCallback onTap;
 
   const SearchResultItem({
-    Key? key,
+    super.key,
     required this.music,
     required this.searchQuery,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

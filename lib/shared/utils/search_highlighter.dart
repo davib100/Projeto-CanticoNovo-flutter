@@ -7,12 +7,12 @@ class SearchHighlighter extends StatelessWidget {
   final TextStyle? highlightStyle;
 
   const SearchHighlighter({
-    Key? key,
+    super.key,
     required this.text,
     required this.query,
     this.textStyle,
     this.highlightStyle,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -374,9 +374,19 @@ final authStateProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   );
 });
 
-enum AuthProvider {
+enum CustomAuthProvider {
   google,
   facebook,
   apple,
   // Adicione os que precisar
+}
+extension AuthProviderExtension on AuthProvider {
+  String get name {
+    switch (this) {
+      case AuthProvider.google:
+        return 'google';
+      case AuthProvider.apple:
+        return 'apple';
+    }
+  }
 }

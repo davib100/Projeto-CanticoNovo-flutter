@@ -1,6 +1,5 @@
 // core/observability/observability_service.dart
 import 'dart:async';
-import 'package:sentry/sentry.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:package_info_plus/package_info_plus.dart';

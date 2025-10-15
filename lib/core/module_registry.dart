@@ -558,15 +558,15 @@ class ModuleRegistryException implements Exception {
 }
 
 class ModuleAlreadyRegisteredException extends ModuleRegistryException {
-  ModuleAlreadyRegisteredException(String message) : super(message);
+  ModuleAlreadyRegisteredException(super.message);
 }
 
 class ModuleNotFoundException extends ModuleRegistryException {
-  ModuleNotFoundException(String message) : super(message);
+  ModuleNotFoundException(super.message);
 }
 
 class ModuleNotInitializedException extends ModuleRegistryException {
-  ModuleNotInitializedException(String message) : super(message);
+  ModuleNotInitializedException(super.message);
 }
 
 class ModuleInitializationException extends ModuleRegistryException {
@@ -575,11 +575,11 @@ class ModuleInitializationException extends ModuleRegistryException {
   final StackTrace? stackTrace;
   
   ModuleInitializationException(
-    String message, {
+    super.message, {
     required this.module,
     this.originalException,
     this.stackTrace,
-  }) : super(message);
+  });
   
   @override
   String toString() {
@@ -590,5 +590,5 @@ class ModuleInitializationException extends ModuleRegistryException {
 }
 
 class CircularDependencyException extends ModuleRegistryException {
-  CircularDependencyException(String message) : super(message);
+  CircularDependencyException(super.message);
 }

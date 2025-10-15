@@ -4,15 +4,12 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'module_registry.dart';
 import 'queue/queue_manager.dart';
-import 'queue/queued_operation.dart';
 import 'db/database_adapter.dart';
-import 'db/migration_manager.dart';
 import 'db/schema_registry.dart';
 import 'sync/sync_engine.dart';
 import 'background/background_sync.dart';
@@ -255,7 +252,7 @@ class AppOrchestrator {
       }
       
       // Verificar se há migrações pendentes
-      final currentVersion = await _dbAdapter.schemaVersion;
+      final currentVersion = _dbAdapter.schemaVersion;
       if (kDebugMode) {
         print('   Database version: $currentVersion');
       }
@@ -428,10 +425,12 @@ class AppOrchestrator {
         }
       } else {
         await _registry.initializeAll(
-          db: _dbAdapter,
-          queue: _queueManager,
-          observability: _observability,
-        );
+           db: _dbAdapter,
+           queue: _queueManager,
+           observability: _observability,
+);
+
+
         
         final initializedCount = _registry.getInitializedModules().length;
         final lazyCount = _registry.getLazyModules().length;
@@ -479,24 +478,26 @@ class AppOrchestrator {
   
   /// 13. Health Check
   Future<void> _performHealthCheck() async {
-    final step = _startStep('Health Check', '🏥');
+  final step = _startStep('Health Check', '🏥');
+  
+  try {
+    final healthStatus = {
+      'database': _dbAdapter.isHealthy,
+      'queueManager': _queueManager.isHealthy,
+      'syncEngine': _syncEngine.isHealthy ,
+      'moduleRegistry': _registry.isInitialized,
+      'observability': _observability.isInitialized,
+    };
     
-    try {
-      final healthStatus = {
-        'database': _dbAdapter != null,
-        'queueManager': _queueManager != null,
-        'syncEngine': _syncEngine != null,
-        'moduleRegistry': _registry.isInitialized,
-        'observability': _observability.isInitialized,
-      };
-      
-      final isHealthy = healthStatus.values.every((v) => v == true);
-      
-      if (!isHealthy) {
-        throw HealthCheckException(
-          'Health check failed: ${healthStatus.entries.where((e) => !e.value).map((e) => e.key).join(", ")}'
-        );
-      }
+    final isHealthy = healthStatus.values.every((v) => v);
+    
+    if (!isHealthy) {
+      final failedComponents = healthStatus.entries
+        .where((e) => !e.value)
+        .map((e) => e.key)
+        .join(", ");
+      throw HealthCheckException('Health check failed: $failedComponents');
+    }
       
       _completeStep(step, success: true, metadata: healthStatus);
     } catch (e) {
@@ -504,6 +505,7 @@ class AppOrchestrator {
       rethrow;
     }
   }
+  
   
   /// Registra módulos externos
   void registerModules(List<AppModule> modules) {

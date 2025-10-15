@@ -1,6 +1,9 @@
+import 'package:firebase_core/firebase_core.dart';
+
 // main.dart
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   
   final orchestrator = AppOrchestrator(
     registry: ModuleRegistry(),
