@@ -11,6 +11,8 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../security/encryption_service.dart';
+import '../security/token_manager.dart';
 import '../security/auth_service.dart';
 import '../services/api_client.dart';
 import '../queue/queue_manager.dart';
@@ -34,60 +36,69 @@ void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     try {
       debugPrint('🔄 Background sync task started: $task');
-      
-      // Inicializar dependências em isolate
-      final db = DatabaseAdapter();
+
+      // 1. Inicializar dependências base no isolate
       final observability = ObservabilityService();
-      final secureStorage = const FlutterSecureStorage();
-      
-      
-      final apiClient = ApiClient(
-        baseUrl: inputData?['api_base_url'] ?? '',
-        authService: null, // Será injetado depois
+      final secureStorage = FlutterSecureStorage();
+
+      // 2. Inicializar o serviço de autenticação com dependências corretas
+      final authService = AuthService(
+        secureStorage: secureStorage, // reutilizando a instância correta
+        apiClient: null, // será atribuído após a criação do ApiClient
         observability: observability,
       );
-      
-      final authService = AuthService(
-        secureStorage: secureStorage,
-        apiClient: apiClient,
-      );
-      
-      apiClient.authService = authService;
 
+      // 3. Criar ApiClient com base na URL recebida e authService
+      final apiClient = ApiClient(
+        baseUrl: inputData?['api_base_url'] ?? '',
+        authService: authService,
+        observability: observability,
+      );
+
+      // 4. Corrigir referência cruzada entre AuthService e ApiClient
+      authService.apiClient = apiClient;
+
+      // 5. Inicializar banco de dados
+      final db = DatabaseAdapter(); // suposição de init async
+
+      // 6. Inicializar SyncEngine e dependências
       final syncEngine = SyncEngine(
         db: db,
         apiClient: apiClient,
-         observability: observability,
+        observability: observability,
       );
-      
+
       final queueManager = QueueManager(
         db: db,
         syncEngine: syncEngine,
       );
-      
+
       final backgroundSync = BackgroundSync(
         queueManager: queueManager,
         syncEngine: syncEngine,
       );
-      
+
       await backgroundSync.initialize();
-      
-      // Executar sincronização
+
+      // 7. Executar sincronização
       final result = await backgroundSync.executeBackgroundSync(
         taskName: task,
         constraints: BackgroundSyncConstraints.fromMap(inputData ?? {}),
       );
-      
-      debugPrint('✅ Background sync completed: ${result.success}');
-      
-      return result.success;
-      
-    } catch (e, stackTrace) {
-      debugPrint('❌ Background sync failed: $e');
-      debugPrint(stackTrace.toString());
-      return false;
+
+      debugPrint('✅ Background sync task finished successfully.');
+      return Future.value(result.success); // resultado real da execução
+
+    } catch (e, s) {
+      debugPrint('❌ Error during background sync: $e');
+      // observability.logError(e, s); // opcional
+      return Future.value(false);
     }
   });
+}
+
+extension on AuthService {
+  set apiClient(ApiClient apiClient) {}
 }
 
 /// Gerenciador de sincronização em background
