@@ -1,4 +1,5 @@
 // core/db/database_config.dart
+import 'package:flutter/foundation.dart';
 
 class DatabaseConfig {
   final String databaseName;

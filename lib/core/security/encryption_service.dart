@@ -2,12 +2,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:cryptography/cryptography.dart';
-import 'package:crypto/crypto.dart';
-import 'package:convert/convert.dart';
+import 'package:crypto/crypto.dart' as crypto;
 
 /// Serviço de criptografia enterprise-grade com:
 /// - AES-256-GCM (Galois/Counter Mode) para confidencialidade e integridade
@@ -111,7 +111,7 @@ class EncryptionService {
         plainData,
         secretKey: key,
         nonce: nonce,
-        aad: associatedData,
+        aad: associatedData ?? Uint8List(0),
       );
       
       final encrypted = EncryptedData(
@@ -175,7 +175,7 @@ class EncryptionService {
       final plainData = await _aesGcm.decrypt(
         secretBox,
         secretKey: key,
-        aad: associatedData,
+        aad: associatedData ?? Uint8List(0),
       );
       
       _metrics.decryptionCount++;
@@ -341,7 +341,7 @@ class EncryptionService {
   
   /// Hash de dados (SHA-256)
   String hashData(Uint8List data) {
-    final digest = sha256.convert(data);
+    final digest = crypto.sha256.convert(data);
     return digest.toString();
   }
   
@@ -517,8 +517,6 @@ class EncryptionService {
     required String outputPath,
     void Function(double progress)? onProgress,
   }) async {
-    const chunkSize = 1024 * 1024; // 1MB chunks
-    
     final inputFile = File(inputPath);
     final outputFile = File(outputPath);
     final fileSize = await inputFile.length();

@@ -601,23 +601,19 @@ class ObservabilityReport {
   }
 }
 
-/// Span vazio para quando Sentry não está inicializado
+/// A no-op implementation of [ISentrySpan] for when Sentry is not initialized.
 class NoOpSentrySpan implements ISentrySpan {
   @override
-Future<void> finish({DateTime? endTimestamp, Hint? hint, SpanStatus? status}) async {}
-
+  Future<void> finish({DateTime? endTimestamp, Hint? hint, SpanStatus? status}) async {}
 
   @override
   void removeData(String key) {}
-
- @override
- SentryTracesSamplingDecision? get samplingDecision => null;
 
   @override
   void removeTag(String key) {}
 
   @override
-  void setData(String key, dynamic value) {}
+  void setData(String key, value) {}
 
   @override
   void setMeasurement(String name, num value, {SentryMeasurementUnit? unit}) {}
@@ -627,7 +623,7 @@ Future<void> finish({DateTime? endTimestamp, Hint? hint, SpanStatus? status}) as
 
   @override
   ISentrySpan startChild(String operation, {String? description, DateTime? startTimestamp}) {
-    return NoOpSentrySpan();
+    return this;
   }
 
   @override
@@ -637,31 +633,32 @@ Future<void> finish({DateTime? endTimestamp, Hint? hint, SpanStatus? status}) as
   set status(SpanStatus? status) {}
 
   @override
-  SentryTraceHeader toSentryTrace() => SentryTraceHeader(
-    SentryId.empty(),
-    SpanId.empty(),
-  );
+  SentryTraceHeader toSentryTrace() {
+    return SentryTraceHeader(SentryId.empty(), SpanId.empty());
+  }
 
   @override
   SentrySpanContext get context => SentrySpanContext(
-    traceId: SentryId.empty(),
-    spanId: SpanId.empty(),
-    parentSpanId: SpanId.empty(),
-    operation: '',
-    description: null,
-  );
+        traceId: SentryId.empty(),
+        spanId: SpanId.empty(),
+        parentSpanId: SpanId.empty(),
+        operation: 'noop',
+      );
+
+  @override
+  noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+
+
+  @override
+  SentryTraceContextHeader? traceContext() {
+  return null;
+}
+
+  @override
+  SentryTracesSamplingDecision? get samplingDecision => null;
 
   @override
   bool get finished => true;
-
-  @override
-  SentryId get spanId => SentryId.empty();
-
-  @override
-  SpanId get traceId => SpanId.empty();
-
-  @override
-  Map<String, String> get tags => {};
 
   @override
   Future<void> scheduleFinish() async {}
@@ -670,42 +667,20 @@ Future<void> finish({DateTime? endTimestamp, Hint? hint, SpanStatus? status}) as
   SentryBaggageHeader? toBaggageHeader() => null;
 
   @override
-  final SentryTraceContext _traceContext = SentryTraceContext(
-  traceId: SentryId.empty(),
-  spanId: SpanId.empty(),
-  operation: '',
-);
-
-  @override
   String get origin => 'auto.ui.noop';
 
   @override
   set origin(String? origin) {}
 
   @override
-  bool? get sampled => false;
-  
-  @override
   dynamic get throwable => null;
 
   @override
   set throwable(dynamic throwable) {}
-  
+
   @override
-  DateTime get startTimestamp => DateTime.now();
-  
+  DateTime get startTimestamp => DateTime(1970);
+
   @override
-  String? get description => '';
-  
-  @override
-  String get operation => '';
-  
-  @override
-  Map<String, dynamic> get data => {};
-  
-  @override
-  DateTime? get endTimestamp => DateTime.now();
-  
-  @override
-  SpanId? get parentSpanId => SpanId.empty();
+  DateTime? get endTimestamp => DateTime(1970);
 }

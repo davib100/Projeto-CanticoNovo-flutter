@@ -1,4 +1,5 @@
 // core/db/migration_manager.dart
+import 'dart:developer' as developer;
 import 'package:drift/drift.dart';
 import '../../../core/migrations/migration_v1_to_v2.dart';
 import '../../../core/migrations/migration_v2_to_v3.dart';
@@ -30,7 +31,7 @@ class MigrationManager {
       
       try {
         await migration.migrate(migrator);
-        print('✅ Migration v$version -> v${version + 1} completed');
+        developer.log('✅ Migration v$version -> v${version + 1} completed', name: 'MigrationManager');
       } catch (e) {
         throw MigrationFailedException(
           'Failed to migrate from v$version to v${version + 1}: $e'
@@ -56,7 +57,7 @@ class MigrationManager {
   
   /// Retorna o histórico de migrações aplicadas
   static Future<List<MigrationRecord>> getMigrationHistory(
-    DatabaseAdapter db
+    GeneratedDatabase db
   ) async {
     final results = await db.customSelect(
       'SELECT * FROM migration_history ORDER BY applied_at DESC'

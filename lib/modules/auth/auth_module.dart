@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cantico_novo/core/app_module.dart';
-import 'package:cantico_novo/core/db/database_adapter.dart';
-import 'package:cantico_novo/core/services/http_service.dart';
-import 'package:cantico_novo/core/security/token_manager.dart';
-import 'package:cantico_novo/core/observability/logger.dart';
-import 'package:cantico_novo/core/exceptions/module_exception.dart';
-import 'package:cantico_novo/core/routing/route_guard.dart';
+import 'package:myapp/core/app_module.dart';
+import 'package:myapp/core/db/database_adapter.dart';
+import 'package:myapp/core/services/http_service.dart';
+import 'package:myapp/core/security/token_manager.dart';
+import 'package:myapp/core/observability/logger.dart';
+import 'package:myapp/core/exceptions/module_exception.dart';
+import 'package:myapp/core/routing/route_guard.dart';
 
 import 'presentation/screens/login_screen.dart';
 import 'presentation/screens/register_screen.dart';
