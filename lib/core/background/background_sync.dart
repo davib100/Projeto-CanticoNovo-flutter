@@ -37,31 +37,51 @@ void callbackDispatcher() {
     try {
       debugPrint('🔄 Background sync task started: $task');
 
-      // 1. Inicializar dependências base no isolate
+      // 1. Inicializar serviços base
       final observability = ObservabilityService();
-      final secureStorage = FlutterSecureStorage();
+      final secureStorage = const FlutterSecureStorage();
+      final encryptionService = EncryptionService();
 
-      // 2. Inicializar o serviço de autenticação com dependências corretas
-      final authService = AuthService(
-        secureStorage: secureStorage, // reutilizando a instância correta
-        apiClient: null, // será atribuído após a criação do ApiClient
+      // 2. Inicializar TokenManager
+      final tokenManager = TokenManager(
+        secureStorage: secureStorage,
+        encryptionService: encryptionService,
         observability: observability,
       );
 
-      // 3. Criar ApiClient com base na URL recebida e authService
+      // 3. Buscar token de acesso (para uso posterior)
+      final accessToken = await tokenManager.getAccessToken();
+
+      if (accessToken == null) {
+        debugPrint('⚠️ Access token não encontrado ou expirado.');
+        return Future.value(false); // Não segue com sync se não há token válido
+      }
+
+      debugPrint('🔑 Access token carregado com sucesso.');
+
+      // 4. Criar AuthService (injeção tardia depois)
+      final authService = AuthService(
+        secureStorage: secureStorage,
+        apiClient: null,
+        observability: observability,
+        localAuth: LocalAuthentication(),
+        deviceInfo: DeviceInfoPlugin(),
+      );
+
+      // 5. Criar ApiClient com AuthService e base URL
       final apiClient = ApiClient(
-        baseUrl: inputData?['api_base_url'] ?? '',
+        baseUrl: inputData?['api_base_url'] ?? 'https://sua-nova-api.com/api',
         authService: authService,
         observability: observability,
       );
 
-      // 4. Corrigir referência cruzada entre AuthService e ApiClient
+      // 6. Completar injeção do AuthService
       authService.apiClient = apiClient;
 
-      // 5. Inicializar banco de dados
-      final db = DatabaseAdapter(); // suposição de init async
+      // 7. Inicializar banco de dados
+      final db = DatabaseAdapter();
 
-      // 6. Inicializar SyncEngine e dependências
+      // 8. Inicializar motor de sincronização
       final syncEngine = SyncEngine(
         db: db,
         apiClient: apiClient,
@@ -80,25 +100,20 @@ void callbackDispatcher() {
 
       await backgroundSync.initialize();
 
-      // 7. Executar sincronização
+      // 9. Executar sincronização
       final result = await backgroundSync.executeBackgroundSync(
         taskName: task,
         constraints: BackgroundSyncConstraints.fromMap(inputData ?? {}),
       );
 
       debugPrint('✅ Background sync task finished successfully.');
-      return Future.value(result.success); // resultado real da execução
-
+      return Future.value(result.success);
     } catch (e, s) {
-      debugPrint('❌ Error during background sync: $e');
-      // observability.logError(e, s); // opcional
+      debugPrint('❌ Erro durante sincronização: $e');
+      // observability.logError(e, s);
       return Future.value(false);
     }
   });
-}
-
-extension on AuthService {
-  set apiClient(ApiClient apiClient) {}
 }
 
 /// Gerenciador de sincronização em background

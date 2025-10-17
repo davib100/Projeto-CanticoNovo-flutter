@@ -33,91 +33,94 @@ class AuthService {
   static const _biometricEnabledKey = 'auth_biometric_enabled';
   static const _lastAuthTimeKey = 'auth_last_auth_time';
   static const _pkceVerifierKey = 'auth_pkce_verifier';
-  
+
   final FlutterSecureStorage _secureStorage;
-  final ApiClient? _apiClient;
+  ApiClient? _apiClient; // 🔧 Removido 'final' para permitir injeção tardia
   final ObservabilityService? _observability;
   final LocalAuthentication _localAuth;
   final DeviceInfoPlugin _deviceInfo;
-  
+
   // Estado de autenticação
   final _authStateController = StreamController<AuthState>.broadcast();
   AuthState _currentState = AuthState.unauthenticated();
-  
+
   // Configuração
   final AuthConfig _config;
-  
+
   // Token refresh lock
   Completer<String?>? _refreshCompleter;
   Timer? _tokenRefreshTimer;
   Timer? _sessionCheckTimer;
-  
+
   // Cache
   UserProfile? _cachedUserProfile;
   String? _cachedDeviceId;
-  
+
   // Métricas
   final _metrics = AuthMetrics();
-  
+
+  /// 🔧 Setter para permitir injeção tardia do ApiClient
+  set apiClient(ApiClient? client) => _apiClient = client;
+
   AuthService({
-  required FlutterSecureStorage secureStorage,
-  required ApiClient? apiClient,
-  AuthConfig? config,
-  ObservabilityService? observability,
-  LocalAuthentication? localAuth,
-  DeviceInfoPlugin? deviceInfo,
-})  : _secureStorage = secureStorage,
-      _apiClient = apiClient,
-      _config = config ?? AuthConfig.defaults(),
-      _observability = observability,
-      _localAuth = localAuth ?? LocalAuthentication(),
-      _deviceInfo = deviceInfo ?? DeviceInfoPlugin();
-  
+    required FlutterSecureStorage secureStorage,
+    required ApiClient? apiClient,
+    AuthConfig? config,
+    ObservabilityService? observability,
+    LocalAuthentication? localAuth,
+    DeviceInfoPlugin? deviceInfo,
+  })  : _secureStorage = secureStorage,
+        _apiClient = apiClient,
+        _config = config ?? AuthConfig.defaults(),
+        _observability = observability,
+        _localAuth = localAuth ?? LocalAuthentication(),
+        _deviceInfo = deviceInfo ?? DeviceInfoPlugin();
+
   /// Stream de estados de autenticação
   Stream<AuthState> get authStateStream => _authStateController.stream;
-  
+
   /// Estado atual
   AuthState get currentState => _currentState;
-  
+
   /// Verifica se está autenticado
   bool get isAuthenticated => _currentState is AuthStateAuthenticated;
-  
+
   /// Obtém perfil do usuário em cache
   UserProfile? get currentUser => _cachedUserProfile;
-  
+
   /// Métricas de autenticação
   AuthMetrics get metrics => _metrics;
-  
+
   /// Inicializa o serviço
   Future<void> initialize() async {
     try {
       // Carregar device ID ou gerar novo
       _cachedDeviceId = await _getOrCreateDeviceId();
-      
+
       // Verificar se há sessão válida
       final hasSession = await hasValidSession();
-      
+
       if (hasSession) {
         // Carregar perfil do usuário
         await _loadUserProfile();
-        
+
         // Iniciar monitoramento de token
         _startTokenRefreshMonitoring();
-        
+
         // Iniciar verificação de sessão
         _startSessionChecking();
-        
+
         _updateState(AuthState.authenticated(user: _cachedUserProfile!));
-        
+
         _metrics.sessionsRestored++;
-        
+
         if (kDebugMode) {
           debugPrint('✅ Auth session restored for: ${_cachedUserProfile?.email}');
         }
       } else {
         _updateState(AuthState.unauthenticated());
       }
-      
+
       _observability?.addBreadcrumb(
         'AuthService initialized',
         category: 'auth',
@@ -126,18 +129,17 @@ class AuthService {
           'has_session': hasSession,
         },
       );
-      
     } catch (e, stackTrace) {
       await _observability?.captureException(
         e,
         stackTrace: stackTrace,
         endpoint: 'auth_service.initialize',
       );
-      
+
       _updateState(AuthState.error(error: 'Failed to initialize: $e'));
     }
   }
-  
+
   /// Login com OAuth 2.1 + PKCE
   Future<AuthResult> loginWithOAuth({
     required AuthProvider provider,
