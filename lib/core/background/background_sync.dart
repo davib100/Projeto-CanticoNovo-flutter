@@ -1,19 +1,21 @@
+
 // core/background/background_sync.dart
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-import 'package:device_info_plus/device_info_plus.dart';
+// import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../security/encryption_service.dart';
 import '../security/token_manager.dart';
-import '../security/auth_service.dart';
 import '../services/api_client.dart';
 import '../queue/queue_manager.dart';
 import '../sync/sync_engine.dart';
@@ -22,66 +24,46 @@ import '../observability/observability_service.dart';
 import 'background_sync_config.dart';
 import 'background_sync_state.dart';
 
-/// Serviço de sincronização em background com:
-/// - Battery-aware scheduling
-/// - Network-aware execution (Wi-Fi only por padrão)
-/// - Throttling e debouncing inteligente
-/// - Wake lock management
-/// - Persistência de estado
-/// - Retry com exponential backoff
-/// - Observabilidade completa
-/// - Platform-specific optimizations
+/// Ponto de entrada para a execução de tarefas em background.
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
+    final observability = ObservabilityService();
     try {
       debugPrint('🔄 Background sync task started: $task');
-
-      // 1. Inicializar serviços base
-      final observability = ObservabilityService();
+      
+      // 1. Inicializar serviços essenciais
+      await observability.initSentry(dsn: inputData?['sentry_dsn']);
       final secureStorage = const FlutterSecureStorage();
-      final encryptionService = EncryptionService();
+      final encryptionService = EncryptionService(secureStorage);
+      await encryptionService.initialize();
 
-      // 2. Inicializar TokenManager
+      // 2. Inicializar o TokenManager
       final tokenManager = TokenManager(
         secureStorage: secureStorage,
         encryptionService: encryptionService,
-        observability: observability,
+        observabilityService: observability,
       );
 
-      // 3. Buscar token de acesso (para uso posterior)
+      // 3. Verificar a existência do token
       final accessToken = await tokenManager.getAccessToken();
-
       if (accessToken == null) {
-        debugPrint('⚠️ Access token não encontrado ou expirado.');
-        return Future.value(false); // Não segue com sync se não há token válido
+        observability.addBreadcrumb('Access token not found. Aborting sync task.', level: SentryLevel.warning);
+        debugPrint('⚠️ Access token not found. Aborting sync task.');
+        return Future.value(true); // Retorna sucesso para não re-tentar indefinidamente
       }
+      debugPrint('🔑 Access token loaded successfully.');
 
-      debugPrint('🔑 Access token carregado com sucesso.');
-
-      // 4. Criar AuthService (injeção tardia depois)
-      final authService = AuthService(
-        secureStorage: secureStorage,
-        apiClient: null,
-        observability: observability,
-        localAuth: LocalAuthentication(),
-        deviceInfo: DeviceInfoPlugin(),
-      );
-
-      // 5. Criar ApiClient com AuthService e base URL
+      // 4. Inicializar o ApiClient
       final apiClient = ApiClient(
         baseUrl: inputData?['api_base_url'] ?? 'https://sua-nova-api.com/api',
-        authService: authService,
-        observability: observability,
+        client: http.Client(),
+        tokenManager: tokenManager,
+        observabilityService: observability,
       );
 
-      // 6. Completar injeção do AuthService
-      authService.apiClient = apiClient;
-
-      // 7. Inicializar banco de dados
+      // 5. Inicializar o restante da infraestrutura de sincronização
       final db = DatabaseAdapter();
-
-      // 8. Inicializar motor de sincronização
       final syncEngine = SyncEngine(
         db: db,
         apiClient: apiClient,
@@ -97,24 +79,25 @@ void callbackDispatcher() {
         queueManager: queueManager,
         syncEngine: syncEngine,
       );
-
       await backgroundSync.initialize();
 
-      // 9. Executar sincronização
+      // 6. Executar a lógica de sincronização
       final result = await backgroundSync.executeBackgroundSync(
         taskName: task,
         constraints: BackgroundSyncConstraints.fromMap(inputData ?? {}),
       );
 
-      debugPrint('✅ Background sync task finished successfully.');
+      debugPrint('✅ Background sync task finished successfully: ${result.message}');
       return Future.value(result.success);
+
     } catch (e, s) {
-      debugPrint('❌ Erro durante sincronização: $e');
-      // observability.logError(e, s);
-      return Future.value(false);
+      debugPrint('❌ Unhandled error during background sync: $e');
+      await observability.captureException(e, stackTrace: s, hint: 'Unhandled error in callbackDispatcher');
+      return Future.value(false); // Retorna falha para que o WorkManager possa aplicar a política de backoff
     }
   });
 }
+
 
 /// Gerenciador de sincronização em background
 class BackgroundSync {
@@ -127,7 +110,7 @@ class BackgroundSync {
   late final Battery _battery;
   late final Connectivity _connectivity;
   late final SharedPreferences _prefs;
-  late final DeviceInfoPlugin _deviceInfo;
+  // late final DeviceInfoPlugin _deviceInfo;
   
   // Estado e configuração
   late BackgroundSyncConfig _config;
@@ -165,7 +148,7 @@ class BackgroundSync {
       _battery = Battery();
       _connectivity = Connectivity();
       _prefs = await SharedPreferences.getInstance();
-      _deviceInfo = DeviceInfoPlugin();
+      // _deviceInfo = DeviceInfoPlugin();
       
       // Carregar configuração
       _config = await _loadConfiguration();
@@ -174,10 +157,7 @@ class BackgroundSync {
       await _loadPersistedState();
       
       // Configurar WorkManager
-      await Workmanager().initialize(
-        callbackDispatcher,
-        isInDebugMode: kDebugMode,
-      );
+      await Workmanager().initialize(callbackDispatcher);
       
       // Monitorar bateria e conectividade
       _setupMonitoring();
@@ -250,7 +230,7 @@ class BackgroundSync {
       frequency: _config.syncInterval,
       constraints: constraints,
       initialDelay: _calculateInitialDelay(),
-      existingWorkPolicy: ExistingWorkPolicy.replace,
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
       backoffPolicy: BackoffPolicy.exponential,
       backoffPolicyDelay: const Duration(minutes: 5),
       inputData: {
@@ -452,37 +432,55 @@ class BackgroundSync {
   Future<BackgroundSyncResult> syncCritical({
     required String reason,
   }) async {
-    // Para operações críticas que não podem falhar
-    // Promove para foreground service se necessário
-    
     _updateState(BackgroundSyncState.syncing(
       progress: 0.0,
       message: 'Critical sync: $reason',
     ));
-    
-    // Adquirir wake lock completo
+
     await WakelockPlus.enable();
-    
+
     try {
-      // Em produção, aqui seria iniciado um ForegroundService
-      // com notificação persistente
-      
+      // Agendar uma tarefa one-off de alta prioridade para garantir a execução
+      await Workmanager().registerOneOffTask(
+        '${_criticalSyncTaskName}_${DateTime.now().millisecondsSinceEpoch}',
+        _criticalSyncTaskName, // Usando a constante
+        constraints: Constraints(networkType: NetworkType.connected),
+        initialDelay: Duration.zero,
+        inputData: {
+          'api_base_url': _config.apiBaseUrl,
+          'priority': SyncPriority.critical.value,
+          'force': true,
+          'reason': reason,
+        },
+      );
+
+      // Executar imediatamente em foreground
       final result = await _syncEngine.sync(
         priority: SyncPriority.critical,
         force: true,
       );
-      
+
       _lastSyncTime = DateTime.now();
       await _saveLastSyncTime(_lastSyncTime!);
-      
+
       return BackgroundSyncResult(
         success: true,
         message: 'Critical sync completed',
-        duration: Duration.zero,
+        duration: Duration.zero, // A duração real é da tarefa em background
         pushedCount: result.pushedCount,
         pulledCount: result.pulledCount,
       );
-      
+    } catch (e, stackTrace) {
+       if (kDebugMode) {
+        debugPrint('❌ Critical sync failed: $e');
+        debugPrint(stackTrace.toString());
+      }
+      // A tarefa do WorkManager ainda tentará executar
+      return BackgroundSyncResult(
+        success: false,
+        message: 'Critical sync failed: $e',
+        duration: Duration.zero,
+      );
     } finally {
       await WakelockPlus.disable();
     }
@@ -515,7 +513,7 @@ class BackgroundSync {
     // 2. Verificar conectividade
     final connectivityResult = await _connectivity.checkConnectivity();
     
-    final isConnected = connectivityResult != ConnectivityResult.none;
+    final isConnected = !connectivityResult.contains(ConnectivityResult.none);
     checks['connectivity'] = isConnected;
     
     if (!isConnected) {
@@ -527,7 +525,7 @@ class BackgroundSync {
     }
     
     // 3. Verificar tipo de rede
-    final isWifi = connectivityResult == ConnectivityResult.wifi;
+    final isWifi = connectivityResult.contains(ConnectivityResult.wifi);
     final networkOk = !_config.wifiOnly || isWifi;
     
     checks['network_type'] = networkOk;
@@ -656,7 +654,7 @@ class BackgroundSync {
   Future<bool> _checkDeviceHealth() async {
     try {
       if (Platform.isAndroid) {
-        final androidInfo = await _deviceInfo.androidInfo;
+        // final androidInfo = await _deviceInfo.androidInfo;
         
         // Verificar se está em modo de economia extrema
         // (API não expõe temperatura diretamente)
@@ -697,7 +695,7 @@ class BackgroundSync {
         }
         
         // Se conectou ao Wi-Fi, tentar sync
-        if (result == ConnectivityResult.wifi && _config.syncOnWifiConnect) {
+        if (result.contains(ConnectivityResult.wifi) && _config.syncOnWifiConnect) {
           syncNow(priority: SyncPriority.low).catchError((e) {
             if (kDebugMode) {
               debugPrint('⚠️  Opportunistic sync failed: $e');
@@ -899,7 +897,7 @@ class BackgroundSyncConstraints {
     required this.requireBatteryNotLow,
     required this.respectTimeWindow,
   });
-  
+
   factory BackgroundSyncConstraints.fromMap(Map<String, dynamic> map) {
     return BackgroundSyncConstraints(
       priority: map['priority'] as int? ?? SyncPriority.normal.value,
