@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cantico_novo/core/app_orchestrator.dart';
-import 'package:cantico_novo/core/observability/logger.dart';
+import 'package:myapp/core/module_registry.dart';
+import 'package:myapp/core/observability/logger.dart';
 import 'presentation/quick_access_screen.dart';
 
 @AppModule(

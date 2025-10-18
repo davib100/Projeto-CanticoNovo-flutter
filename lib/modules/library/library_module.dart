@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/module_registry.dart';
+import 'package:myapp/core/module_registry.dart';
 
 @AppModule(
   name: 'LibraryModule',

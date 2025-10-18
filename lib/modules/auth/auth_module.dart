@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:myapp/core/app_module.dart';
+import 'package:myapp/core/module_registry.dart';
 import 'package:myapp/core/db/database_adapter.dart';
 import 'package:myapp/core/services/http_service.dart';
 import 'package:myapp/core/security/token_manager.dart';

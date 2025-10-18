@@ -1,8 +1,7 @@
 // /frontend/modules/karaoke/karaoke_module.dart
 
 import 'package:flutter/material.dart';
-import '../../core/app_orchestrator.dart';
-import '../../core/module_registry.dart';
+import 'package:myapp/core/module_registry.dart';
 import 'presentation/screens/karaoke_list_screen.dart';
 
 @AppModule(

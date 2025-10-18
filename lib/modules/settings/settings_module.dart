@@ -1,21 +1,9 @@
 // /modules/settings/settings_module.dart
 
 import 'package:flutter/material.dart';
+import 'package:myapp/core/module_registry.dart';
+import 'screens/settings_screen.dart';
 
-/// Decorator para registro automático no AppOrchestrator
-class AppModule {
-  final String name;
-  final String route;
-  final PersistenceType persistenceType;
-
-  const AppModule({
-    required this.name,
-    required this.route,
-    this.persistenceType = PersistenceType.direct,
-  });
-}
-
-enum PersistenceType { direct, queue }
 
 @AppModule(
   name: 'SettingsModule',

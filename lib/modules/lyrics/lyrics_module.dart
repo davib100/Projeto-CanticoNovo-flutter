@@ -1,8 +1,7 @@
 // /modules/lyrics/lyrics_module.dart
 
-import '../../../core/app_orchestrator.dart';
-import '../../../core/module_registry.dart';
-import '../../../core/observability/logger.dart';
+import 'package:myapp/core/module_registry.dart';
+import 'package:myapp/core/observability/logger.dart';
 
 @AppModule()
 class LyricsModule implements AppModuleInterface {

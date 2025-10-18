@@ -108,7 +108,7 @@ class RateLimiter {
       availableTokens: availableTokens,
       maxTokens: maxTokens,
       requestRate: requestRate,
-      utilizationRate: (maxTokens - availableTokens) / maxTokens * 100,
+      utilizationRate: ((maxTokens - availableTokens) / maxTokens * 100).toInt(),
     );
   }
 }
@@ -118,7 +118,7 @@ class RateLimiterMetrics {
   final int availableTokens;
   final int maxTokens;
   final double requestRate;
-  final double utilizationRate;
+  final int utilizationRate;
   
   RateLimiterMetrics({
     required this.availableTokens,

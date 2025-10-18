@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/app_orchestrator.dart';
-import '../../core/module_registry.dart';
+import 'package:myapp/core/module_registry.dart';
 import 'ui/search_screen.dart';
 
 @AppModule(
