@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:myapp/core/module_registry.dart';
 import 'screens/settings_screen.dart';
 
-
 @AppModule(
   name: 'SettingsModule',
   route: '/settings',
@@ -12,7 +11,7 @@ import 'screens/settings_screen.dart';
 )
 class SettingsModule {
   static const String moduleName = 'SettingsModule';
-  
+
   /// Rota principal do módulo
   static Widget getScreen() {
     return const SettingsScreen();

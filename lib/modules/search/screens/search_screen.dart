@@ -19,10 +19,8 @@ class SearchScreen extends ConsumerWidget {
         child: CustomScrollView(
           slivers: [
             // Header
-            SliverToBoxAdapter(
-              child: _buildHeader(context, user),
-            ),
-            
+            SliverToBoxAdapter(child: _buildHeader(context, user)),
+
             // Search Bar
             SliverToBoxAdapter(
               child: Padding(
@@ -35,24 +33,27 @@ class SearchScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            
+
             // Suggestions
-            if (searchState.suggestions.isNotEmpty && searchState.query.isNotEmpty)
+            if (searchState.suggestions.isNotEmpty &&
+                searchState.query.isNotEmpty)
               SliverToBoxAdapter(
                 child: SearchSuggestions(
                   suggestions: searchState.suggestions,
                   onSuggestionTap: (suggestion) {
-                    ref.read(searchProvider.notifier).selectSuggestion(suggestion);
+                    ref
+                        .read(searchProvider.notifier)
+                        .selectSuggestion(suggestion);
                   },
                 ),
               ),
-            
+
             // Error State
             if (searchState.hasError)
               SliverToBoxAdapter(
                 child: _buildErrorState(context, searchState.errorMessage),
               ),
-            
+
             // Loading State
             if (searchState.isLoading)
               const SliverToBoxAdapter(
@@ -63,37 +64,32 @@ class SearchScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-            
+
             // Search Results
             if (searchState.showResults)
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final music = searchState.results[index];
-                      return SearchResultItem(
-                        music: music,
-                        searchQuery: searchState.debouncedQuery,
-                        onTap: () => _handleMusicTap(context, ref, music),
-                      );
-                    },
-                    childCount: searchState.results.length,
-                  ),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final music = searchState.results[index];
+                    return SearchResultItem(
+                      music: music,
+                      searchQuery: searchState.debouncedQuery,
+                      onTap: () => _handleMusicTap(context, ref, music),
+                    );
+                  }, childCount: searchState.results.length),
                 ),
               ),
-            
+
             // Empty State
             if (searchState.showEmptyState)
               SliverToBoxAdapter(
                 child: _buildEmptyState(context, searchState.debouncedQuery),
               ),
-            
+
             // Initial State
             if (!searchState.hasQuery && !searchState.isLoading)
-              SliverToBoxAdapter(
-                child: _buildInitialState(context),
-              ),
+              SliverToBoxAdapter(child: _buildInitialState(context)),
           ],
         ),
       ),
@@ -117,25 +113,25 @@ class SearchScreen extends ConsumerWidget {
             child: Text(
               'Cântico Novo',
               style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Sua biblioteca musical definitiva',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.grey[600],
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
           ),
           if (user != null) ...[
             const SizedBox(height: 8),
             Text(
               'Olá, ${user.fullName ?? user.email}!',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey[500],
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.grey[500]),
             ),
           ],
         ],
@@ -168,10 +164,7 @@ class SearchScreen extends ConsumerWidget {
                   ),
                 ),
                 if (message != null)
-                  Text(
-                    message,
-                    style: TextStyle(color: Colors.red[700]),
-                  ),
+                  Text(message, style: TextStyle(color: Colors.red[700])),
               ],
             ),
           ),
@@ -185,17 +178,13 @@ class SearchScreen extends ConsumerWidget {
       padding: const EdgeInsets.all(48.0),
       child: Column(
         children: [
-          Icon(
-            Icons.search_off,
-            size: 64,
-            color: Colors.grey[300],
-          ),
+          Icon(Icons.search_off, size: 64, color: Colors.grey[300]),
           const SizedBox(height: 16),
           Text(
             'Nenhum resultado para "$query"',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.grey[600],
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
             textAlign: TextAlign.center,
           ),
         ],
@@ -208,26 +197,22 @@ class SearchScreen extends ConsumerWidget {
       padding: const EdgeInsets.all(64.0),
       child: Column(
         children: [
-          Icon(
-            Icons.music_note,
-            size: 80,
-            color: Colors.grey[300],
-          ),
+          Icon(Icons.music_note, size: 80, color: Colors.grey[300]),
           const SizedBox(height: 24),
           Text(
             'Sua biblioteca de músicas em um só lugar',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.grey[700],
-                  fontWeight: FontWeight.w600,
-                ),
+              color: Colors.grey[700],
+              fontWeight: FontWeight.w600,
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 12),
           Text(
             'Comece a buscar para encontrar suas letras e cifras',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.grey[500],
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(color: Colors.grey[500]),
             textAlign: TextAlign.center,
           ),
         ],
@@ -238,7 +223,7 @@ class SearchScreen extends ConsumerWidget {
   void _handleMusicTap(BuildContext context, WidgetRef ref, dynamic music) {
     // Registra acesso
     ref.read(searchProvider.notifier).trackMusicAccess(music);
-    
+
     // Navega para tela de visualização
     Navigator.pushNamed(
       context,

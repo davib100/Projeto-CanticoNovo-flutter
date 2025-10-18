@@ -5,17 +5,16 @@ import '../../../core/security/secure_storage.dart';
 import '../models/music_entity.dart';
 
 class SearchApi {
-  static const String baseUrl = 'https://app.base44.com/api/apps/689cf551f2c7408b283acfdd';
+  static const String baseUrl =
+      'https://app.base44.com/api/apps/689cf551f2c7408b283acfdd';
   static const String apiKey = '9f06ef55eda744d59d8d52a098ac6f0b';
-  
+
   final ApiClient _apiClient;
   final SecureStorage _secureStorage;
 
-  SearchApi({
-    ApiClient? apiClient,
-    SecureStorage? secureStorage,
-  })  : _apiClient = apiClient ?? ApiClient.instance,
-        _secureStorage = secureStorage ?? SecureStorage.instance;
+  SearchApi({ApiClient? apiClient, SecureStorage? secureStorage})
+    : _apiClient = apiClient ?? ApiClient.instance,
+      _secureStorage = secureStorage ?? SecureStorage.instance;
 
   /// Busca músicas por título ou letra
   Future<List<MusicEntity>> searchMusic({
@@ -26,10 +25,7 @@ class SearchApi {
     try {
       final response = await _apiClient.get(
         '$baseUrl/entities/Music',
-        headers: {
-          'api_key': apiKey,
-          'Content-Type': 'application/json',
-        },
+        headers: {'api_key': apiKey, 'Content-Type': 'application/json'},
         queryParameters: {
           'query': query,
           'limit': limit.toString(),
@@ -60,10 +56,7 @@ class SearchApi {
     try {
       final response = await _apiClient.put(
         '$baseUrl/entities/Music/$musicId',
-        headers: {
-          'api_key': apiKey,
-          'Content-Type': 'application/json',
-        },
+        headers: {'api_key': apiKey, 'Content-Type': 'application/json'},
         body: json.encode({
           'last_accessed': lastAccessed.toIso8601String(),
           'access_count': accessCount,
@@ -87,14 +80,8 @@ class SearchApi {
     try {
       final response = await _apiClient.get(
         '$baseUrl/entities/Music/suggestions',
-        headers: {
-          'api_key': apiKey,
-          'Content-Type': 'application/json',
-        },
-        queryParameters: {
-          'query': query,
-          'limit': '5',
-        },
+        headers: {'api_key': apiKey, 'Content-Type': 'application/json'},
+        queryParameters: {'query': query, 'limit': '5'},
       );
 
       if (response.statusCode == 200) {

@@ -6,7 +6,8 @@ import 'ui/search_screen.dart';
   name: 'SearchModule',
   version: '1.0.0',
   dependencies: ['AuthModule', 'QuickAccessModule'],
-  persistenceType: PersistenceType.direct, // Histórico de busca usa persistência direta
+  persistenceType:
+      PersistenceType.direct, // Histórico de busca usa persistência direta
 )
 class SearchModule extends ModuleBase {
   @override
@@ -15,14 +16,14 @@ class SearchModule extends ModuleBase {
   @override
   Future<void> initialize() async {
     final startTime = DateTime.now();
-    
+
     try {
       // Registra rotas do módulo
       _registerRoutes();
-      
+
       // Inicializa serviços locais
       await _initializeServices();
-      
+
       // Log de sucesso
       logModuleAction(
         moduleName: moduleName,

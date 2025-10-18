@@ -6,22 +6,21 @@ import 'domain/repositories/terms_repository.dart';
 
 @AppModule(
   name: 'TermsModule',
-  persistenceType: PersistenceType.direct, // Escrita direta - não crítico para sync
+  persistenceType:
+      PersistenceType.direct, // Escrita direta - não crítico para sync
   route: '/terms',
 )
 class TermsModule {
   static void register() {
     final registry = ModuleRegistry.instance;
-    
+
     registry.registerModule(
       name: 'TermsModule',
       persistenceType: PersistenceType.direct,
       initializer: () async {
         // Registro do repositório
-        registry.registerProvider<TermsRepository>(
-          TermsRepositoryImpl(),
-        );
-        
+        registry.registerProvider<TermsRepository>(TermsRepositoryImpl());
+
         return true;
       },
     );

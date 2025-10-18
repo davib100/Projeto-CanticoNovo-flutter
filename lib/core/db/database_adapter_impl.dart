@@ -57,7 +57,9 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> updateOperation(QueuedOperation operation) {
-    return (update(operations)..where((tbl) => tbl.id.equals(operation.id))).write(
+    return (update(
+      operations,
+    )..where((tbl) => tbl.id.equals(operation.id))).write(
       OperationsCompanion(
         attempts: Value(operation.attempts),
         status: Value(operation.status),
@@ -66,24 +68,28 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<List<QueuedOperation>> getPendingOperations() async {
-    final result = await (select(operations)
-          ..where((tbl) =>
-              tbl.status.isNull() |
-              tbl.status.equals('paused') |
-              tbl.status.equals('running')))
-        .get();
+    final result =
+        await (select(operations)..where(
+              (tbl) =>
+                  tbl.status.isNull() |
+                  tbl.status.equals('paused') |
+                  tbl.status.equals('running'),
+            ))
+            .get();
 
     return result
-        .map((o) => QueuedOperation(
-              id: o.id,
-              type: o.type,
-              data: o.data,
-              priority: QueuePriority.values[o.priority],
-              maxRetries: o.maxRetries,
-              attempts: o.attempts,
-              batchId: o.batchId,
-              status: o.status,
-            ))
+        .map(
+          (o) => QueuedOperation(
+            id: o.id,
+            type: o.type,
+            data: o.data,
+            priority: QueuePriority.values[o.priority],
+            maxRetries: o.maxRetries,
+            attempts: o.attempts,
+            batchId: o.batchId,
+            status: o.status,
+          ),
+        )
         .toList();
   }
 
@@ -165,5 +171,20 @@ class DatabaseAdapterImpl extends DatabaseAdapter {
   @override
   Future<void> invalidateCache(String key) async {
     // Implement caching logic here if needed
+  }
+
+  @override
+  Future<File> export() async {
+    final dbFolder = await getApplicationDocumentsDirectory();
+    return File(p.join(dbFolder.path, 'db.sqlite'));
+  }
+
+  @override
+  Future<void> restore(List<int> data) async {
+    await _db.close();
+    final dbFolder = await getApplicationDocumentsDirectory();
+    final file = File(p.join(dbFolder.path, 'db.sqlite'));
+    await file.writeAsBytes(data);
+    _db = AppDatabase();
   }
 }

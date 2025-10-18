@@ -23,10 +23,7 @@ class SearchBarWidget extends StatelessWidget {
             offset: const Offset(0, 4),
           ),
         ],
-        border: Border.all(
-          color: Colors.grey[200]!,
-          width: 2,
-        ),
+        border: Border.all(color: Colors.grey[200]!, width: 2),
       ),
       child: TextField(
         controller: TextEditingController(text: query)

@@ -7,8 +7,9 @@ class ConnectivityService {
   ConnectivityService._internal();
 
   final Connectivity _connectivity = Connectivity();
-  final BehaviorSubject<bool> _isConnectedController = 
-      BehaviorSubject.seeded(true);
+  final BehaviorSubject<bool> _isConnectedController = BehaviorSubject.seeded(
+    true,
+  );
 
   Stream<bool> get isConnected$ => _isConnectedController.stream;
   bool get isConnected => _isConnectedController.value;

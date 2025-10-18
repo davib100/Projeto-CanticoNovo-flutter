@@ -28,7 +28,7 @@ class AuthModuleConfig {
   final bool enableBiometrics;
   final bool enableOAuth;
   final List<String> allowedOAuthProviders;
-  
+
   const AuthModuleConfig({
     this.sessionTimeout = const Duration(hours: 1),
     this.tokenRefreshInterval = const Duration(minutes: 50),
@@ -99,12 +99,12 @@ class InitializationResult {
 class AuthModule extends BaseModule {
   final Logger _logger = Logger.instance;
   final AuthModuleConfig _config;
-  
+
   ModuleInitStatus _status = ModuleInitStatus.notStarted;
   final List<String> _initializationLogs = [];
-  
-  AuthModule({AuthModuleConfig? config}) 
-      : _config = config ?? const AuthModuleConfig();
+
+  AuthModule({AuthModuleConfig? config})
+    : _config = config ?? const AuthModuleConfig();
 
   @override
   String get moduleName => 'AuthModule';
@@ -116,7 +116,7 @@ class AuthModule extends BaseModule {
   Future<bool> _validateDependencies() async {
     try {
       _log('Validating dependencies', LogStatus.pending);
-      
+
       // Verificar dependências core
       final requiredProviders = [
         databaseAdapterProvider,
@@ -146,12 +146,12 @@ class AuthModule extends BaseModule {
   /// Registro de datasources com factory pattern
   void _registerDataSources() {
     _log('Registering datasources', LogStatus.pending);
-    
+
     try {
       // Lazy initialization para otimização
       container.read(authRemoteDataSourceProvider);
       container.read(authLocalDataSourceProvider);
-      
+
       _log('Datasources registered', LogStatus.success);
     } catch (e, stackTrace) {
       _log('Failed to register datasources: $e', LogStatus.error);
@@ -168,7 +168,7 @@ class AuthModule extends BaseModule {
   /// Registro de repositories
   void _registerRepositories() {
     _log('Registering repositories', LogStatus.pending);
-    
+
     try {
       container.read(authRepositoryProvider);
       _log('Repositories registered', LogStatus.success);
@@ -187,7 +187,7 @@ class AuthModule extends BaseModule {
   /// Registro de use cases
   void _registerUseCases() {
     _log('Registering use cases', LogStatus.pending);
-    
+
     try {
       final useCases = [
         loginUseCaseProvider,
@@ -199,7 +199,7 @@ class AuthModule extends BaseModule {
       for (final useCase in useCases) {
         container.read(useCase);
       }
-      
+
       _log('Use cases registered', LogStatus.success);
     } catch (e, stackTrace) {
       _log('Failed to register use cases: $e', LogStatus.error);
@@ -216,11 +216,11 @@ class AuthModule extends BaseModule {
   /// Registro de providers com lifecycle management
   void _registerProviders() {
     _log('Registering state providers', LogStatus.pending);
-    
+
     try {
       // Provider principal com keepAlive para manter estado
       container.read(authStateProvider.notifier);
-      
+
       _log('State providers registered', LogStatus.success);
     } catch (e, stackTrace) {
       _log('Failed to register providers: $e', LogStatus.error);
@@ -237,27 +237,23 @@ class AuthModule extends BaseModule {
   /// Registro de rotas com guards
   void _registerRoutes() {
     _log('Registering routes', LogStatus.pending);
-    
+
     try {
       // Rotas públicas
-      registerRoute(
-        '/login',
-        (context) => const LoginScreen(),
-        guards: [],
-      );
-      
+      registerRoute('/login', (context) => const LoginScreen(), guards: []);
+
       registerRoute(
         '/register',
         (context) => const RegisterScreen(),
         guards: [],
       );
-      
+
       registerRoute(
         '/reset-password',
         (context) => const ResetPasswordScreen(),
         guards: [],
       );
-      
+
       _log('Routes registered (3 routes)', LogStatus.success);
     } catch (e, stackTrace) {
       _log('Failed to register routes: $e', LogStatus.error);
@@ -274,20 +270,20 @@ class AuthModule extends BaseModule {
   /// Health check do módulo
   Future<bool> _performHealthCheck() async {
     _log('Performing health check', LogStatus.pending);
-    
+
     try {
       // Verificar se providers estão funcionais
       final authState = container.read(authStateProvider);
-      
+
       // Verificar conexão com datasources
       final localDataSource = container.read(authLocalDataSourceProvider);
       final hasValidSession = await localDataSource.hasValidSession();
-      
+
       _log(
         'Health check passed (Session: ${hasValidSession ? 'Valid' : 'Invalid'})',
         LogStatus.success,
       );
-      
+
       return true;
     } catch (e, stackTrace) {
       _log('Health check failed: $e', LogStatus.error);
@@ -306,7 +302,7 @@ class AuthModule extends BaseModule {
     final timestamp = DateTime.now().toIso8601String();
     final logEntry = '[$timestamp] $message';
     _initializationLogs.add(logEntry);
-    
+
     _logger.logModuleInit(
       moduleName: moduleName,
       action: message,
@@ -326,7 +322,7 @@ class AuthModule extends BaseModule {
   @override
   Future<void> initialize() async {
     final stopwatch = Stopwatch()..start();
-    
+
     try {
       _status = ModuleInitStatus.validating;
       _log('Starting AuthModule initialization v$version', LogStatus.pending);
@@ -361,7 +357,7 @@ class AuthModule extends BaseModule {
       // 7. Health check
       _status = ModuleInitStatus.healthCheck;
       final healthCheckPassed = await _performHealthCheck();
-      
+
       if (!healthCheckPassed) {
         _logger.logWarning(
           'Health check failed but module will continue',
@@ -372,7 +368,7 @@ class AuthModule extends BaseModule {
       // 8. Finalizar
       _status = ModuleInitStatus.completed;
       stopwatch.stop();
-      
+
       _log(
         'AuthModule initialized successfully in ${stopwatch.elapsedMilliseconds}ms',
         LogStatus.success,
@@ -389,11 +385,10 @@ class AuthModule extends BaseModule {
           'logs': _initializationLogs,
         },
       );
-
     } catch (e, stackTrace) {
       _status = ModuleInitStatus.failed;
       stopwatch.stop();
-      
+
       _log(
         'AuthModule initialization failed after ${stopwatch.elapsedMilliseconds}ms: $e',
         LogStatus.error,
@@ -419,11 +414,11 @@ class AuthModule extends BaseModule {
   @override
   Future<void> dispose() async {
     _log('Disposing AuthModule', LogStatus.pending);
-    
+
     try {
       // Limpar providers se necessário
       // Nota: Riverpod gerencia automaticamente com autoDispose
-      
+
       _log('AuthModule disposed', LogStatus.success);
     } catch (e, stackTrace) {
       _logger.logError(

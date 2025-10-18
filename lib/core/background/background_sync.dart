@@ -1,4 +1,3 @@
-
 // core/background/background_sync.dart
 import 'dart:async';
 import 'dart:convert';
@@ -20,6 +19,7 @@ import '../services/api_client.dart';
 import '../queue/queue_manager.dart';
 import '../sync/sync_engine.dart';
 import '../db/database_adapter.dart';
+import '../db/database_adapter_impl.dart';
 import '../observability/observability_service.dart';
 import 'background_sync_config.dart';
 import 'background_sync_state.dart';
@@ -31,7 +31,7 @@ void callbackDispatcher() {
     final observability = ObservabilityService();
     try {
       debugPrint('🔄 Background sync task started: $task');
-      
+
       // 1. Inicializar serviços essenciais
       await observability.initSentry(dsn: inputData?['sentry_dsn']);
       final secureStorage = const FlutterSecureStorage();
@@ -48,9 +48,14 @@ void callbackDispatcher() {
       // 3. Verificar a existência do token
       final accessToken = await tokenManager.getAccessToken();
       if (accessToken == null) {
-        observability.addBreadcrumb('Access token not found. Aborting sync task.', level: SentryLevel.warning);
+        observability.addBreadcrumb(
+          'Access token not found. Aborting sync task.',
+          level: SentryLevel.warning,
+        );
         debugPrint('⚠️ Access token not found. Aborting sync task.');
-        return Future.value(true); // Retorna sucesso para não re-tentar indefinidamente
+        return Future.value(
+          true,
+        ); // Retorna sucesso para não re-tentar indefinidamente
       }
       debugPrint('🔑 Access token loaded successfully.');
 
@@ -63,17 +68,14 @@ void callbackDispatcher() {
       );
 
       // 5. Inicializar o restante da infraestrutura de sincronização
-      final db = DatabaseAdapter();
+      final db = DatabaseAdapterImpl();
       final syncEngine = SyncEngine(
         db: db,
         apiClient: apiClient,
         observability: observability,
       );
 
-      final queueManager = QueueManager(
-        db: db,
-        syncEngine: syncEngine,
-      );
+      final queueManager = QueueManager(db: db, syncEngine: syncEngine);
 
       final backgroundSync = BackgroundSync(
         queueManager: queueManager,
@@ -87,60 +89,66 @@ void callbackDispatcher() {
         constraints: BackgroundSyncConstraints.fromMap(inputData ?? {}),
       );
 
-      debugPrint('✅ Background sync task finished successfully: ${result.message}');
+      debugPrint(
+        '✅ Background sync task finished successfully: ${result.message}',
+      );
       return Future.value(result.success);
-
     } catch (e, s) {
       debugPrint('❌ Unhandled error during background sync: $e');
-      await observability.captureException(e, stackTrace: s, hint: 'Unhandled error in callbackDispatcher');
-      return Future.value(false); // Retorna falha para que o WorkManager possa aplicar a política de backoff
+      await observability.captureException(
+        e,
+        stackTrace: s,
+        hint: 'Unhandled error in callbackDispatcher',
+      );
+      return Future.value(
+        false,
+      ); // Retorna falha para que o WorkManager possa aplicar a política de backoff
     }
   });
 }
-
 
 /// Gerenciador de sincronização em background
 class BackgroundSync {
   static const String _uniqueTaskName = 'com.canticonovo.background_sync';
   static const String _manualSyncTaskName = 'com.canticonovo.manual_sync';
   static const String _criticalSyncTaskName = 'com.canticonovo.critical_sync';
-  
+
   final QueueManager _queueManager;
   final SyncEngine _syncEngine;
   late final Battery _battery;
   late final Connectivity _connectivity;
   late final SharedPreferences _prefs;
   // late final DeviceInfoPlugin _deviceInfo;
-  
+
   // Estado e configuração
   late BackgroundSyncConfig _config;
   BackgroundSyncState _state = BackgroundSyncState.idle();
-  
+
   // Controle de throttling
   DateTime? _lastSyncTime;
   Timer? _cooldownTimer;
   int _consecutiveFailures = 0;
-  
+
   // Streams
   final _stateController = StreamController<BackgroundSyncState>.broadcast();
   StreamSubscription? _batterySubscription;
   StreamSubscription? _connectivitySubscription;
-  
+
   BackgroundSync({
     required QueueManager queueManager,
     required SyncEngine syncEngine,
-  })  : _queueManager = queueManager,
-        _syncEngine = syncEngine;
-  
+  }) : _queueManager = queueManager,
+       _syncEngine = syncEngine;
+
   /// Stream de estados
   Stream<BackgroundSyncState> get stateStream => _stateController.stream;
-  
+
   /// Estado atual
   BackgroundSyncState get currentState => _state;
-  
+
   /// Configuração atual
   BackgroundSyncConfig get config => _config;
-  
+
   /// Inicializa o serviço
   Future<void> initialize() async {
     try {
@@ -149,29 +157,28 @@ class BackgroundSync {
       _connectivity = Connectivity();
       _prefs = await SharedPreferences.getInstance();
       // _deviceInfo = DeviceInfoPlugin();
-      
+
       // Carregar configuração
       _config = await _loadConfiguration();
-      
+
       // Carregar estado persistido
       await _loadPersistedState();
-      
+
       // Configurar WorkManager
       await Workmanager().initialize(callbackDispatcher);
-      
+
       // Monitorar bateria e conectividade
       _setupMonitoring();
-      
+
       // Registrar estratégias de background do SO
       await _registerPlatformSpecificStrategies();
-      
+
       if (kDebugMode) {
         debugPrint('✅ BackgroundSync initialized');
         debugPrint('   Auto-sync: ${_config.autoSyncEnabled}');
         debugPrint('   Frequency: ${_config.syncInterval}');
         debugPrint('   Wi-Fi only: ${_config.wifiOnly}');
       }
-      
     } catch (e, stackTrace) {
       if (kDebugMode) {
         debugPrint('❌ Failed to initialize BackgroundSync: $e');
@@ -180,49 +187,49 @@ class BackgroundSync {
       rethrow;
     }
   }
-  
+
   /// Habilita sincronização automática periódica
   Future<void> enableAutoSync() async {
     if (!_config.autoSyncEnabled) {
       _config = _config.copyWith(autoSyncEnabled: true);
       await _saveConfiguration();
     }
-    
+
     await _schedulePeriodicSync();
-    
+
     if (kDebugMode) {
       debugPrint('✅ Auto-sync enabled');
     }
   }
-  
+
   /// Desabilita sincronização automática
   Future<void> disableAutoSync() async {
     if (_config.autoSyncEnabled) {
       _config = _config.copyWith(autoSyncEnabled: false);
       await _saveConfiguration();
     }
-    
+
     await Workmanager().cancelByUniqueName(_uniqueTaskName);
-    
+
     if (kDebugMode) {
       debugPrint('⏸️  Auto-sync disabled');
     }
   }
-  
+
   /// Agenda sincronização periódica
   Future<void> _schedulePeriodicSync() async {
     if (!_config.autoSyncEnabled) return;
-    
+
     // Cancelar agendamento anterior
     await Workmanager().cancelByUniqueName(_uniqueTaskName);
-    
+
     // Determinar constraints
     final constraints = await _buildConstraints(
       requireWifi: _config.wifiOnly,
       requireCharging: _config.requireCharging,
       requireBatteryNotLow: _config.requireBatteryNotLow,
     );
-    
+
     // Agendar tarefa periódica
     await Workmanager().registerPeriodicTask(
       _uniqueTaskName,
@@ -238,14 +245,14 @@ class BackgroundSync {
         'priority': SyncPriority.normal.value,
       },
     );
-    
+
     if (kDebugMode) {
       debugPrint('📅 Periodic sync scheduled');
       debugPrint('   Frequency: ${_config.syncInterval}');
       debugPrint('   Initial delay: ${_calculateInitialDelay()}');
     }
   }
-  
+
   /// Executa sincronização manual imediata
   Future<BackgroundSyncResult> syncNow({
     bool force = false,
@@ -254,18 +261,20 @@ class BackgroundSync {
     // Verificar cooldown
     if (!force && !_canSyncNow()) {
       final remainingCooldown = _getRemainingCooldown();
-      
+
       if (kDebugMode) {
-        debugPrint('⏳ Sync cooldown active: ${remainingCooldown.inSeconds}s remaining');
+        debugPrint(
+          '⏳ Sync cooldown active: ${remainingCooldown.inSeconds}s remaining',
+        );
       }
-      
+
       return BackgroundSyncResult(
         success: false,
         message: 'Sync in cooldown period',
         duration: Duration.zero,
       );
     }
-    
+
     // Verificar condições
     if (!force) {
       final conditionsCheck = await _checkSyncConditions();
@@ -277,22 +286,20 @@ class BackgroundSync {
         );
       }
     }
-    
+
     _updateState(BackgroundSyncState.syncing(progress: 0.0));
-    
+
     // Adquirir wake lock
     await WakelockPlus.enable();
-    
+
     final startTime = DateTime.now();
-    
+
     try {
       // Agendar tarefa de alta prioridade
       await Workmanager().registerOneOffTask(
         '${_manualSyncTaskName}_${DateTime.now().millisecondsSinceEpoch}',
         _manualSyncTaskName,
-        constraints: Constraints(
-          networkType: NetworkType.connected,
-        ),
+        constraints: Constraints(networkType: NetworkType.connected),
         initialDelay: Duration.zero,
         inputData: {
           'api_base_url': _config.apiBaseUrl,
@@ -300,26 +307,28 @@ class BackgroundSync {
           'force': force,
         },
       );
-      
+
       // Executar sync diretamente (foreground)
       final result = await _syncEngine.sync(priority: priority);
-      
+
       final duration = DateTime.now().difference(startTime);
-      
+
       // Atualizar estado
       _lastSyncTime = DateTime.now();
       _consecutiveFailures = 0;
-      
+
       await _saveLastSyncTime(_lastSyncTime!);
-      
-      _updateState(BackgroundSyncState.completed(
-        lastSyncTime: _lastSyncTime!,
-        duration: duration,
-      ));
-      
+
+      _updateState(
+        BackgroundSyncState.completed(
+          lastSyncTime: _lastSyncTime!,
+          duration: duration,
+        ),
+      );
+
       // Iniciar cooldown
       _startCooldown();
-      
+
       return BackgroundSyncResult(
         success: true,
         message: 'Sync completed successfully',
@@ -328,47 +337,47 @@ class BackgroundSync {
         pulledCount: result.pulledCount,
         conflictsResolved: result.conflictsResolved,
       );
-      
     } catch (e, stackTrace) {
       final duration = DateTime.now().difference(startTime);
-      
+
       _consecutiveFailures++;
-      
-      _updateState(BackgroundSyncState.error(
-        error: e.toString(),
-        lastSyncTime: _lastSyncTime,
-      ));
-      
+
+      _updateState(
+        BackgroundSyncState.error(
+          error: e.toString(),
+          lastSyncTime: _lastSyncTime,
+        ),
+      );
+
       if (kDebugMode) {
         debugPrint('❌ Manual sync failed: $e');
         debugPrint(stackTrace.toString());
       }
-      
+
       return BackgroundSyncResult(
         success: false,
         message: 'Sync failed: $e',
         duration: duration,
       );
-      
     } finally {
       // Liberar wake lock
       await WakelockPlus.disable();
     }
   }
-  
+
   /// Executa sincronização em background (chamado pelo WorkManager)
   Future<BackgroundSyncResult> executeBackgroundSync({
     required String taskName,
     required BackgroundSyncConstraints constraints,
   }) async {
     final startTime = DateTime.now();
-    
+
     try {
       // Verificar se pode executar
       final conditionsCheck = await _checkSyncConditions(
         constraints: constraints,
       );
-      
+
       if (!conditionsCheck.canSync) {
         return BackgroundSyncResult(
           success: false,
@@ -376,27 +385,27 @@ class BackgroundSync {
           duration: DateTime.now().difference(startTime),
         );
       }
-      
+
       // Adquirir partial wake lock
       await WakelockPlus.enable();
-      
+
       // Executar sync
       final priority = SyncPriority.values.firstWhere(
         (p) => p.value == constraints.priority,
         orElse: () => SyncPriority.normal,
       );
-      
+
       final result = await _syncEngine.sync(priority: priority);
-      
+
       final duration = DateTime.now().difference(startTime);
-      
+
       // Atualizar estado persistido
       _lastSyncTime = DateTime.now();
       _consecutiveFailures = 0;
-      
+
       await _saveLastSyncTime(_lastSyncTime!);
       await _saveBackgroundSyncStats(duration, success: true);
-      
+
       return BackgroundSyncResult(
         success: true,
         message: 'Background sync completed',
@@ -405,37 +414,35 @@ class BackgroundSync {
         pulledCount: result.pulledCount,
         conflictsResolved: result.conflictsResolved,
       );
-      
     } catch (e, stackTrace) {
       final duration = DateTime.now().difference(startTime);
-      
+
       _consecutiveFailures++;
       await _saveBackgroundSyncStats(duration, success: false);
-      
+
       if (kDebugMode) {
         debugPrint('❌ Background sync failed: $e');
         debugPrint(stackTrace.toString());
       }
-      
+
       return BackgroundSyncResult(
         success: false,
         message: 'Background sync failed: $e',
         duration: duration,
       );
-      
     } finally {
       await WakelockPlus.disable();
     }
   }
-  
+
   /// Sincronização crítica com foreground service
-  Future<BackgroundSyncResult> syncCritical({
-    required String reason,
-  }) async {
-    _updateState(BackgroundSyncState.syncing(
-      progress: 0.0,
-      message: 'Critical sync: $reason',
-    ));
+  Future<BackgroundSyncResult> syncCritical({required String reason}) async {
+    _updateState(
+      BackgroundSyncState.syncing(
+        progress: 0.0,
+        message: 'Critical sync: $reason',
+      ),
+    );
 
     await WakelockPlus.enable();
 
@@ -471,7 +478,7 @@ class BackgroundSync {
         pulledCount: result.pulledCount,
       );
     } catch (e, stackTrace) {
-       if (kDebugMode) {
+      if (kDebugMode) {
         debugPrint('❌ Critical sync failed: $e');
         debugPrint(stackTrace.toString());
       }
@@ -485,23 +492,24 @@ class BackgroundSync {
       await WakelockPlus.disable();
     }
   }
-  
+
   /// Verifica condições para executar sync
   Future<SyncConditionsCheck> _checkSyncConditions({
     BackgroundSyncConstraints? constraints,
   }) async {
     final checks = <String, bool>{};
-    
+
     // 1. Verificar bateria
     final batteryLevel = await _battery.batteryLevel;
     final batteryState = await _battery.batteryState;
-    
-    final batteryOk = constraints?.requireBatteryNotLow == false ||
-                      batteryLevel > _config.minimumBatteryLevel ||
-                      batteryState == BatteryState.charging;
-    
+
+    final batteryOk =
+        constraints?.requireBatteryNotLow == false ||
+        batteryLevel > _config.minimumBatteryLevel ||
+        batteryState == BatteryState.charging;
+
     checks['battery'] = batteryOk;
-    
+
     if (!batteryOk) {
       return SyncConditionsCheck(
         canSync: false,
@@ -509,13 +517,13 @@ class BackgroundSync {
         checks: checks,
       );
     }
-    
+
     // 2. Verificar conectividade
     final connectivityResult = await _connectivity.checkConnectivity();
-    
+
     final isConnected = !connectivityResult.contains(ConnectivityResult.none);
     checks['connectivity'] = isConnected;
-    
+
     if (!isConnected) {
       return SyncConditionsCheck(
         canSync: false,
@@ -523,13 +531,13 @@ class BackgroundSync {
         checks: checks,
       );
     }
-    
+
     // 3. Verificar tipo de rede
     final isWifi = connectivityResult.contains(ConnectivityResult.wifi);
     final networkOk = !_config.wifiOnly || isWifi;
-    
+
     checks['network_type'] = networkOk;
-    
+
     if (!networkOk) {
       return SyncConditionsCheck(
         canSync: false,
@@ -537,12 +545,12 @@ class BackgroundSync {
         checks: checks,
       );
     }
-    
+
     // 4. Verificar temperatura do dispositivo (Android)
     if (Platform.isAndroid) {
       final deviceOk = await _checkDeviceHealth();
       checks['device_health'] = deviceOk;
-      
+
       if (!deviceOk) {
         return SyncConditionsCheck(
           canSync: false,
@@ -551,11 +559,11 @@ class BackgroundSync {
         );
       }
     }
-    
+
     // 5. Verificar se está em horário permitido
     final timeOk = _isWithinAllowedTime();
     checks['time_window'] = timeOk;
-    
+
     if (!timeOk && constraints?.respectTimeWindow != false) {
       return SyncConditionsCheck(
         canSync: false,
@@ -563,47 +571,47 @@ class BackgroundSync {
         checks: checks,
       );
     }
-    
+
     // 6. Verificar operações pendentes
     final hasPendingOps = await _queueManager.getPendingCount() > 0;
     checks['has_pending'] = hasPendingOps;
-    
+
     return SyncConditionsCheck(
       canSync: true,
       reason: 'All conditions met',
       checks: checks,
     );
   }
-  
+
   /// Verifica se pode sincronizar agora (cooldown)
   bool _canSyncNow() {
     if (_lastSyncTime == null) return true;
-    
+
     final timeSinceLastSync = DateTime.now().difference(_lastSyncTime!);
     return timeSinceLastSync >= _config.minimumSyncInterval;
   }
-  
+
   /// Obtém tempo restante de cooldown
   Duration _getRemainingCooldown() {
     if (_lastSyncTime == null) return Duration.zero;
-    
+
     final timeSinceLastSync = DateTime.now().difference(_lastSyncTime!);
     final remaining = _config.minimumSyncInterval - timeSinceLastSync;
-    
+
     return remaining.isNegative ? Duration.zero : remaining;
   }
-  
+
   /// Inicia período de cooldown
   void _startCooldown() {
     _cooldownTimer?.cancel();
-    
+
     _cooldownTimer = Timer(_config.minimumSyncInterval, () {
       if (kDebugMode) {
         debugPrint('✅ Sync cooldown completed');
       }
     });
   }
-  
+
   /// Constrói constraints para WorkManager
   Future<Constraints> _buildConstraints({
     required bool requireWifi,
@@ -611,20 +619,18 @@ class BackgroundSync {
     required bool requireBatteryNotLow,
   }) async {
     return Constraints(
-      networkType: requireWifi 
-        ? NetworkType.unmetered 
-        : NetworkType.connected,
+      networkType: requireWifi ? NetworkType.unmetered : NetworkType.connected,
       requiresCharging: requireCharging,
       requiresBatteryNotLow: requireBatteryNotLow,
       requiresDeviceIdle: _config.requireDeviceIdle,
       requiresStorageNotLow: true,
     );
   }
-  
+
   /// Calcula delay inicial inteligente
   Duration _calculateInitialDelay() {
     final now = DateTime.now();
-    
+
     // Se está de noite (23h-6h), agendar para próxima janela
     if (now.hour >= 23 || now.hour < 6) {
       final nextWindow = DateTime(
@@ -633,42 +639,42 @@ class BackgroundSync {
         now.day + (now.hour >= 23 ? 1 : 0),
         6, // 6h da manhã
       );
-      
+
       return nextWindow.difference(now);
     }
-    
+
     // Caso contrário, usar delay mínimo
     return _config.minimumSyncInterval;
   }
-  
+
   /// Verifica se está dentro do horário permitido
   bool _isWithinAllowedTime() {
     final now = DateTime.now();
-    
+
     // Permitir sync entre 6h e 23h
-    return now.hour >= _config.syncWindowStart && 
-           now.hour < _config.syncWindowEnd;
+    return now.hour >= _config.syncWindowStart &&
+        now.hour < _config.syncWindowEnd;
   }
-  
+
   /// Verifica saúde do dispositivo (temperatura, etc)
   Future<bool> _checkDeviceHealth() async {
     try {
       if (Platform.isAndroid) {
         // final androidInfo = await _deviceInfo.androidInfo;
-        
+
         // Verificar se está em modo de economia extrema
         // (API não expõe temperatura diretamente)
         // Implementação seria específica por dispositivo
-        
+
         return true; // Simplified
       }
-      
+
       return true;
     } catch (e) {
       return true; // Fail-safe
     }
   }
-  
+
   /// Configura monitoramento de bateria e rede
   void _setupMonitoring() {
     // Monitorar bateria
@@ -676,7 +682,7 @@ class BackgroundSync {
       if (kDebugMode) {
         debugPrint('🔋 Battery state changed: $state');
       }
-      
+
       // Se começou a carregar, tentar sync
       if (state == BatteryState.charging && _config.syncOnCharging) {
         syncNow(priority: SyncPriority.low).catchError((e) {
@@ -686,26 +692,27 @@ class BackgroundSync {
         });
       }
     });
-    
+
     // Monitorar conectividade
-    _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
-      (result) {
-        if (kDebugMode) {
-          debugPrint('📡 Connectivity changed: $result');
-        }
-        
-        // Se conectou ao Wi-Fi, tentar sync
-        if (result.contains(ConnectivityResult.wifi) && _config.syncOnWifiConnect) {
-          syncNow(priority: SyncPriority.low).catchError((e) {
-            if (kDebugMode) {
-              debugPrint('⚠️  Opportunistic sync failed: $e');
-            }
-          });
-        }
-      },
-    );
+    _connectivitySubscription = _connectivity.onConnectivityChanged.listen((
+      result,
+    ) {
+      if (kDebugMode) {
+        debugPrint('📡 Connectivity changed: $result');
+      }
+
+      // Se conectou ao Wi-Fi, tentar sync
+      if (result.contains(ConnectivityResult.wifi) &&
+          _config.syncOnWifiConnect) {
+        syncNow(priority: SyncPriority.low).catchError((e) {
+          if (kDebugMode) {
+            debugPrint('⚠️  Opportunistic sync failed: $e');
+          }
+        });
+      }
+    });
   }
-  
+
   /// Registra estratégias específicas da plataforma
   Future<void> _registerPlatformSpecificStrategies() async {
     if (Platform.isAndroid) {
@@ -716,31 +723,31 @@ class BackgroundSync {
       await _configureIOSOptimizations();
     }
   }
-  
+
   /// Configurações específicas para Android
   Future<void> _configureAndroidOptimizations() async {
     // Aqui seria configurado:
     // - Whitelist de battery optimization
     // - Doze mode exemptions
     // - JobScheduler preferences
-    
+
     if (kDebugMode) {
       debugPrint('⚙️  Android optimizations configured');
     }
   }
-  
+
   /// Configurações específicas para iOS
   Future<void> _configureIOSOptimizations() async {
     // Aqui seria configurado:
     // - Background fetch interval
     // - Silent push notifications
     // - Background processing tasks
-    
+
     if (kDebugMode) {
       debugPrint('⚙️  iOS optimizations configured');
     }
   }
-  
+
   /// Obtém estatísticas de sincronização
   Future<BackgroundSyncStats> getStats() async {
     final totalSyncs = _prefs.getInt('bg_sync_total') ?? 0;
@@ -749,28 +756,26 @@ class BackgroundSync {
     final totalDuration = Duration(
       milliseconds: _prefs.getInt('bg_sync_duration_ms') ?? 0,
     );
-    
+
     return BackgroundSyncStats(
       totalSyncs: totalSyncs,
       successfulSyncs: successfulSyncs,
       failedSyncs: failedSyncs,
       lastSyncTime: _lastSyncTime,
       averageDuration: totalSyncs > 0
-        ? Duration(milliseconds: totalDuration.inMilliseconds ~/ totalSyncs)
-        : Duration.zero,
-      successRate: totalSyncs > 0 
-        ? (successfulSyncs / totalSyncs) * 100 
-        : 0.0,
+          ? Duration(milliseconds: totalDuration.inMilliseconds ~/ totalSyncs)
+          : Duration.zero,
+      successRate: totalSyncs > 0 ? (successfulSyncs / totalSyncs) * 100 : 0.0,
     );
   }
-  
+
   /// Atualiza configuração
   Future<void> updateConfig(BackgroundSyncConfig newConfig) async {
     final oldConfig = _config;
     _config = newConfig;
-    
+
     await _saveConfiguration();
-    
+
     // Reagendar se necessário
     if (oldConfig.autoSyncEnabled != newConfig.autoSyncEnabled ||
         oldConfig.syncInterval != newConfig.syncInterval) {
@@ -780,47 +785,44 @@ class BackgroundSync {
         await disableAutoSync();
       }
     }
-    
+
     if (kDebugMode) {
       debugPrint('⚙️  Configuration updated');
     }
   }
-  
+
   /// Carrega configuração
   Future<BackgroundSyncConfig> _loadConfiguration() async {
     final json = _prefs.getString('bg_sync_config');
-    
+
     if (json != null) {
       return BackgroundSyncConfig.fromJson(jsonDecode(json));
     }
-    
+
     return BackgroundSyncConfig.defaults();
   }
-  
+
   /// Salva configuração
   Future<void> _saveConfiguration() async {
-    await _prefs.setString(
-      'bg_sync_config',
-      jsonEncode(_config.toJson()),
-    );
+    await _prefs.setString('bg_sync_config', jsonEncode(_config.toJson()));
   }
-  
+
   /// Carrega estado persistido
   Future<void> _loadPersistedState() async {
     final lastSyncStr = _prefs.getString('bg_sync_last_time');
-    
+
     if (lastSyncStr != null) {
       _lastSyncTime = DateTime.parse(lastSyncStr);
     }
-    
+
     _consecutiveFailures = _prefs.getInt('bg_sync_failures') ?? 0;
   }
-  
+
   /// Salva último tempo de sync
   Future<void> _saveLastSyncTime(DateTime time) async {
     await _prefs.setString('bg_sync_last_time', time.toIso8601String());
   }
-  
+
   /// Salva estatísticas de sync
   Future<void> _saveBackgroundSyncStats(
     Duration duration, {
@@ -828,7 +830,7 @@ class BackgroundSync {
   }) async {
     final totalSyncs = (_prefs.getInt('bg_sync_total') ?? 0) + 1;
     await _prefs.setInt('bg_sync_total', totalSyncs);
-    
+
     if (success) {
       final successCount = (_prefs.getInt('bg_sync_success') ?? 0) + 1;
       await _prefs.setInt('bg_sync_success', successCount);
@@ -838,25 +840,25 @@ class BackgroundSync {
       await _prefs.setInt('bg_sync_failed', failedCount);
       await _prefs.setInt('bg_sync_failures', _consecutiveFailures);
     }
-    
-    final totalDuration = (_prefs.getInt('bg_sync_duration_ms') ?? 0) + 
-                         duration.inMilliseconds;
+
+    final totalDuration =
+        (_prefs.getInt('bg_sync_duration_ms') ?? 0) + duration.inMilliseconds;
     await _prefs.setInt('bg_sync_duration_ms', totalDuration);
   }
-  
+
   /// Atualiza estado
   void _updateState(BackgroundSyncState newState) {
     _state = newState;
     _stateController.add(newState);
   }
-  
+
   /// Libera recursos
   Future<void> dispose() async {
     _cooldownTimer?.cancel();
     await _batterySubscription?.cancel();
     await _connectivitySubscription?.cancel();
     await _stateController.close();
-    
+
     if (kDebugMode) {
       debugPrint('🔒 BackgroundSync disposed');
     }
@@ -875,7 +877,7 @@ class BackgroundSyncResult {
   final int? pushedCount;
   final int? pulledCount;
   final int? conflictsResolved;
-  
+
   BackgroundSyncResult({
     required this.success,
     required this.message,
@@ -891,7 +893,7 @@ class BackgroundSyncConstraints {
   final int priority;
   final bool requireBatteryNotLow;
   final bool respectTimeWindow;
-  
+
   BackgroundSyncConstraints({
     required this.priority,
     required this.requireBatteryNotLow,
@@ -912,7 +914,7 @@ class SyncConditionsCheck {
   final bool canSync;
   final String? reason;
   final Map<String, bool> checks;
-  
+
   SyncConditionsCheck({
     required this.canSync,
     this.reason,
@@ -928,7 +930,7 @@ class BackgroundSyncStats {
   final DateTime? lastSyncTime;
   final Duration averageDuration;
   final double successRate;
-  
+
   BackgroundSyncStats({
     required this.totalSyncs,
     required this.successfulSyncs,

@@ -21,9 +21,7 @@ class SearchResultItem extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
@@ -42,29 +40,23 @@ class SearchResultItem extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              
+
               // Artista
               if (music.artist != null) ...[
                 const SizedBox(height: 4),
                 Text(
                   music.artist!,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                 ),
               ],
-              
+
               // Fragmento da letra
               if (lyricFragment != null) ...[
                 const SizedBox(height: 12),
                 SearchHighlighter(
                   text: lyricFragment,
                   query: searchQuery,
-                  textStyle: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey[700],
-                  ),
+                  textStyle: TextStyle(fontSize: 13, color: Colors.grey[700]),
                   highlightStyle: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -72,7 +64,7 @@ class SearchResultItem extends StatelessWidget {
                   ),
                 ),
               ],
-              
+
               // Tags
               if (music.tags != null && music.tags!.isNotEmpty) ...[
                 const SizedBox(height: 12),

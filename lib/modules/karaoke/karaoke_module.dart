@@ -6,7 +6,8 @@ import 'presentation/screens/karaoke_list_screen.dart';
 
 @AppModule(
   name: 'KaraokeModule',
-  persistenceType: PersistenceType.direct, // Não usa QueueManager - dados temporários
+  persistenceType:
+      PersistenceType.direct, // Não usa QueueManager - dados temporários
   priority: 8,
 )
 class KaraokeModule extends BaseModule {
@@ -16,7 +17,7 @@ class KaraokeModule extends BaseModule {
   @override
   Future<void> initialize() async {
     final startTime = DateTime.now();
-    
+
     try {
       // Log de inicialização
       await logModuleAction(
@@ -32,7 +33,7 @@ class KaraokeModule extends BaseModule {
       await _checkAudioPermissions();
 
       final duration = DateTime.now().difference(startTime);
-      
+
       await logModuleAction(
         action: 'initialize',
         status: ModuleStatus.success,

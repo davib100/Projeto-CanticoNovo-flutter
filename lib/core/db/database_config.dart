@@ -8,7 +8,7 @@ class DatabaseConfig {
   final int slowQueryThreshold; // milliseconds
   final bool backupBeforeMigration;
   final bool rollbackOnMigrationFailure;
-  
+
   const DatabaseConfig({
     required this.databaseName,
     required this.logStatements,
@@ -17,7 +17,7 @@ class DatabaseConfig {
     required this.backupBeforeMigration,
     required this.rollbackOnMigrationFailure,
   });
-  
+
   factory DatabaseConfig.defaults() {
     return const DatabaseConfig(
       databaseName: 'cantico_novo.db',

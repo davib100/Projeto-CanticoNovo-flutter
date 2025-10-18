@@ -4,7 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
-  
+
   final orchestrator = AppOrchestrator(
     registry: ModuleRegistry(),
     queueManager: QueueManager(),
@@ -12,7 +12,7 @@ void main() async {
     syncEngine: SyncEngine(),
     observability: ObservabilityService(),
   );
-  
+
   // Registrar módulos
   orchestrator.registry
     ..register(AuthModule())
@@ -22,9 +22,9 @@ void main() async {
     ..register(SearchModule())
     ..register(SettingsModule())
     ..register(KaraokeModule());
-  
+
   await orchestrator.initialize();
-  
+
   runApp(
     MultiProvider(
       providers: [
@@ -36,12 +36,13 @@ void main() async {
     ),
   );
 }
+
 // Inicialização no main.dart
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   final observability = ObservabilityService();
-  
+
   // Inicializar Sentry
   await observability.initSentry(
     dsn: 'https://your-dsn@sentry.io/project-id',
@@ -49,7 +50,7 @@ Future<void> main() async {
     tracesSampleRate: 1.0,
     enableAutoPerformanceTracing: true,
   );
-  
+
   // Configurar tratamento de erros Flutter
   FlutterError.onError = (FlutterErrorDetails details) async {
     await observability.captureException(
@@ -62,13 +63,13 @@ Future<void> main() async {
     );
     FlutterError.presentError(details);
   };
-  
+
   // Capturar erros assíncronos
   PlatformDispatcher.instance.onError = (error, stack) {
     observability.captureException(error, stackTrace: stack);
     return true;
   };
-  
+
   // Executar app dentro de zona protegida
   runZonedGuarded(
     () {
@@ -83,9 +84,9 @@ Future<void> main() async {
 // Uso em um módulo
 class LibraryModule extends AppModule {
   final ObservabilityService _observability;
-  
+
   LibraryModule(this._observability);
-  
+
   Future<void> createBook(String title) async {
     // Iniciar transação
     final transaction = _observability.startTransaction(
@@ -93,7 +94,7 @@ class LibraryModule extends AppModule {
       'db.operation',
       description: 'Creating new book: $title',
     );
-    
+
     try {
       // Adicionar breadcrumb
       _observability.addBreadcrumb(
@@ -101,19 +102,18 @@ class LibraryModule extends AppModule {
         category: 'library',
         data: {'title': title},
       );
-      
+
       // Operação
       await _repository.createBook(title);
-      
+
       // Registrar métrica
       _observability.recordMetric(
         'book.created',
         1,
         unit: SentryMeasurementUnit.none,
       );
-      
+
       await transaction.finish(status: SpanStatus.ok());
-      
     } catch (e, stackTrace) {
       // Capturar exceção
       await _observability.captureException(
@@ -122,7 +122,7 @@ class LibraryModule extends AppModule {
         endpoint: 'library.createBook',
         extra: {'title': title},
       );
-      
+
       await transaction.finish(status: SpanStatus.internalError());
       rethrow;
     }

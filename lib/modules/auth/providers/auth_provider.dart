@@ -63,10 +63,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       result.fold(
         (error) {
-          state = state.copyWith(
-            isLoading: false,
-            isAuthenticated: false,
-          );
+          state = state.copyWith(isLoading: false, isAuthenticated: false);
         },
         (user) {
           state = state.copyWith(
@@ -83,10 +80,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         },
       );
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        isAuthenticated: false,
-      );
+      state = state.copyWith(isLoading: false, isAuthenticated: false);
     }
   }
 
@@ -112,10 +106,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       return result.fold(
         (error) {
-          state = state.copyWith(
-            isLoading: false,
-            error: error,
-          );
+          state = state.copyWith(isLoading: false, error: error);
 
           _logger.log(
             level: LogLevel.error,
@@ -136,10 +127,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
             level: LogLevel.info,
             message: 'Login successful for user: ${user.email}',
             module: 'AuthModule',
-            metadata: {
-              'userId': user.id,
-              'deviceId': user.deviceId,
-            },
+            metadata: {'userId': user.id, 'deviceId': user.deviceId},
           );
 
           return Right(user);
@@ -147,10 +135,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
     } catch (e) {
       final errorMessage = 'Erro inesperado ao fazer login';
-      state = state.copyWith(
-        isLoading: false,
-        error: errorMessage,
-      );
+      state = state.copyWith(isLoading: false, error: errorMessage);
 
       _logger.log(
         level: LogLevel.error,
@@ -176,10 +161,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       return result.fold(
         (error) {
-          state = state.copyWith(
-            isLoading: false,
-            error: error,
-          );
+          state = state.copyWith(isLoading: false, error: error);
 
           _logger.log(
             level: LogLevel.error,
@@ -207,10 +189,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
     } catch (e) {
       final errorMessage = 'Erro ao fazer login com Google';
-      state = state.copyWith(
-        isLoading: false,
-        error: errorMessage,
-      );
+      state = state.copyWith(isLoading: false, error: errorMessage);
 
       _logger.log(
         level: LogLevel.error,
@@ -244,10 +223,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       return result.fold(
         (error) {
-          state = state.copyWith(
-            isLoading: false,
-            error: error,
-          );
+          state = state.copyWith(isLoading: false, error: error);
 
           _logger.log(
             level: LogLevel.error,
@@ -268,9 +244,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
             level: LogLevel.info,
             message: 'Registration successful for user: ${user.email}',
             module: 'AuthModule',
-            metadata: {
-              'userId': user.id,
-            },
+            metadata: {'userId': user.id},
           );
 
           return Right(user);
@@ -278,10 +252,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
     } catch (e) {
       final errorMessage = 'Erro inesperado ao criar conta';
-      state = state.copyWith(
-        isLoading: false,
-        error: errorMessage,
-      );
+      state = state.copyWith(isLoading: false, error: errorMessage);
 
       _logger.log(
         level: LogLevel.error,
@@ -293,9 +264,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<Either<String, void>> resetPassword({
-    required String email,
-  }) async {
+  Future<Either<String, void>> resetPassword({required String email}) async {
     state = state.copyWith(isLoading: true, error: null);
 
     _logger.log(
@@ -329,10 +298,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return result;
     } catch (e) {
       final errorMessage = 'Erro ao enviar email de redefinição';
-      state = state.copyWith(
-        isLoading: false,
-        error: errorMessage,
-      );
+      state = state.copyWith(isLoading: false, error: errorMessage);
 
       _logger.log(
         level: LogLevel.error,
@@ -380,6 +346,7 @@ enum CustomAuthProvider {
   apple,
   // Adicione os que precisar
 }
+
 extension AuthProviderExtension on AuthProvider {
   String get name {
     switch (this) {

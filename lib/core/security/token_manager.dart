@@ -1,4 +1,3 @@
-
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:myapp/core/security/encryption_service.dart';
 import 'package:myapp/core/observability/observability_service.dart';
@@ -12,9 +11,9 @@ class TokenManager {
     required FlutterSecureStorage secureStorage,
     required EncryptionService encryptionService,
     required ObservabilityService observabilityService,
-  })  : _secureStorage = secureStorage,
-        _encryptionService = encryptionService,
-        _observabilityService = observabilityService;
+  }) : _secureStorage = secureStorage,
+       _encryptionService = encryptionService,
+       _observabilityService = observabilityService;
 
   Future<void> storeAccessToken(String token) async {
     try {
@@ -34,7 +33,9 @@ class TokenManager {
         return null;
       }
       final token = await _encryptionService.decryptString(encryptedToken);
-      _observabilityService.addBreadcrumb('Access token retrieved successfully');
+      _observabilityService.addBreadcrumb(
+        'Access token retrieved successfully',
+      );
       return token;
     } catch (e) {
       _observabilityService.captureException(e, stackTrace: StackTrace.current);

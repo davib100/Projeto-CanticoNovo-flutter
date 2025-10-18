@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:collection/collection.dart';
+//import 'package:collection/collection.dart';
 import 'package:queue/queue.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -77,9 +77,11 @@ class QueueManager {
 
   final Map<QueuePriority, Queue> _priorityQueues = {};
 
-  final BehaviorSubject<QueueState> _stateController =
-      BehaviorSubject.seeded(QueueState.idle);
-  final PublishSubject<QueueEvent> _eventController = PublishSubject<QueueEvent>();
+  final BehaviorSubject<QueueState> _stateController = BehaviorSubject.seeded(
+    QueueState.idle,
+  );
+  final PublishSubject<QueueEvent> _eventController =
+      PublishSubject<QueueEvent>();
 
   QueueMetrics _metrics = const QueueMetrics();
   bool _isPaused = false;
@@ -93,19 +95,21 @@ class QueueManager {
     ObservabilityService? observability,
     QueueConfig? config,
     ConnectivityService? connectivityService,
-  })  : _dbAdapter = db as DatabaseAdapterImpl,
-        _syncEngine = syncEngine,
-        _observability = observability ?? ObservabilityService(),
-        _config = config ?? QueueConfig.defaults(),
-        _connectivityService = connectivityService ?? ConnectivityService.instance {
+  }) : _dbAdapter = db as DatabaseAdapterImpl,
+       _syncEngine = syncEngine,
+       _observability = observability ?? ObservabilityService(),
+       _config = config ?? QueueConfig.defaults(),
+       _connectivityService =
+           connectivityService ?? ConnectivityService.instance {
     for (final priority in QueuePriority.values) {
       _priorityQueues[priority] = Queue(
         parallel: _config.concurrency,
         delay: _config.processingDelay,
       );
     }
-    _connectivitySubscription =
-        _connectivityService.isConnected$.listen(_handleConnectivityChange);
+    _connectivitySubscription = _connectivityService.isConnected$.listen(
+      _handleConnectivityChange,
+    );
     _loadPendingOperations();
   }
 
@@ -113,14 +117,7 @@ class QueueManager {
 
   QueueMetrics get metrics => _metrics;
 
-  int get size {
-    int totalSize = 0;
-    for (final queue in _priorityQueues.values) {
-      totalSize += queue.length;
-    }
-    totalSize += _batchBuffers.length;
-    return totalSize;
-  }
+  int get size => _metrics.pendingOperations;
 
   Future<void> add(QueuedOperation operation) async {
     if (_isPaused) {
@@ -137,7 +134,9 @@ class QueueManager {
     }
 
     await _priorityQueues[operation.priority]!.add(() => _process(operation));
-    _eventController.add(QueueEvent(QueueEventType.operationAdded, data: operation));
+    _eventController.add(
+      QueueEvent(QueueEventType.operationAdded, data: operation),
+    );
   }
 
   Future<void> _process(QueuedOperation operation) async {
@@ -150,10 +149,15 @@ class QueueManager {
       await _syncEngine.sync(priority: _convertPriority(operation.priority));
       await _dbAdapter.deleteOperation(operation.id);
       _updateMetrics(successful: 1, pending: -1);
-      _eventController
-          .add(QueueEvent(QueueEventType.operationSuccess, data: operation));
+      _eventController.add(
+        QueueEvent(QueueEventType.operationSuccess, data: operation),
+      );
     } catch (e, s) {
-      _observability.captureException(e, stackTrace: s, hint: 'Queue Processing Error');
+      _observability.captureException(
+        e,
+        stackTrace: s,
+        hint: 'Queue Processing Error',
+      );
       _retry(operation, error: e);
     }
   }
@@ -168,8 +172,6 @@ class QueueManager {
         return SyncPriority.high;
       case QueuePriority.critical:
         return SyncPriority.critical;
-      default:
-        return SyncPriority.normal;
     }
   }
 
@@ -185,8 +187,10 @@ class QueueManager {
       await _dbAdapter.updateOperation(operation.copyWith(status: 'failed'));
       _updateMetrics(failed: 1, pending: -1);
       _eventController.add(
-        QueueEvent(QueueEventType.operationFailure,
-            data: {'operation': operation, 'error': error}),
+        QueueEvent(
+          QueueEventType.operationFailure,
+          data: {'operation': operation, 'error': error},
+        ),
       );
     }
   }
@@ -212,12 +216,13 @@ class QueueManager {
     _stateController.add(QueueState.idle);
   }
 
-  void _updateMetrics(
-      {int total = 0,
-      int pending = 0,
-      int successful = 0,
-      int failed = 0,
-      int retries = 0}) {
+  void _updateMetrics({
+    int total = 0,
+    int pending = 0,
+    int successful = 0,
+    int failed = 0,
+    int retries = 0,
+  }) {
     _metrics = _metrics.copyWith(
       totalOperations: _metrics.totalOperations + total,
       pendingOperations: _metrics.pendingOperations + pending,
@@ -252,10 +257,4 @@ class QueueManager {
   }
 }
 
-enum QueueState {
-  idle,
-  running,
-  paused,
-  processingBatch,
-  syncing,
-}
+enum QueueState { idle, running, paused, processingBatch, syncing }

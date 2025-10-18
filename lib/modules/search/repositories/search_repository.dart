@@ -9,8 +9,8 @@ class SearchRepository {
 
   final SearchApi _api = SearchApi();
   final DatabaseAdapter _db = DatabaseAdapter.instance;
-  
-  final BehaviorSubject<List<String>> _searchHistoryController = 
+
+  final BehaviorSubject<List<String>> _searchHistoryController =
       BehaviorSubject.seeded([]);
 
   Stream<List<String>> get searchHistory$ => _searchHistoryController.stream;
@@ -23,7 +23,7 @@ class SearchRepository {
     try {
       // 1. Tenta buscar no cache local primeiro
       final localResults = await _searchLocalCache(query);
-      
+
       // 2. Se encontrou resultados locais, retorna imediatamente
       if (localResults.isNotEmpty) {
         return localResults;
@@ -31,13 +31,13 @@ class SearchRepository {
 
       // 3. Busca na API
       final apiResults = await _api.searchMusic(query: query);
-      
+
       // 4. Salva resultados no cache local
       await _cacheSearchResults(apiResults);
-      
+
       // 5. Adiciona ao histórico
       await addToSearchHistory(query);
-      
+
       return apiResults;
     } catch (e) {
       // Em caso de erro de rede, tenta retornar cache local
@@ -73,28 +73,24 @@ class SearchRepository {
   /// Adiciona termo ao histórico de buscas
   Future<void> addToSearchHistory(String query) async {
     final history = List<String>.from(_searchHistoryController.value);
-    
+
     // Remove duplicatas
     history.remove(query);
-    
+
     // Adiciona no início
     history.insert(0, query);
-    
+
     // Limita a 20 itens
     if (history.length > 20) {
       history.removeRange(20, history.length);
     }
-    
+
     // Salva no banco local
-    await _db.insert(
-      'search_history',
-      {
-        'query': query,
-        'searched_at': DateTime.now().toIso8601String(),
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-    
+    await _db.insert('search_history', {
+      'query': query,
+      'searched_at': DateTime.now().toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+
     _searchHistoryController.add(history);
   }
 
@@ -105,7 +101,7 @@ class SearchRepository {
       orderBy: 'searched_at DESC',
       limit: 20,
     );
-    
+
     final history = results.map((row) => row['query'] as String).toList();
     _searchHistoryController.add(history);
   }
@@ -132,17 +128,19 @@ class SearchRepository {
     );
 
     // Atualiza remoto (sem bloquear UI)
-    _api.updateMusicAccess(
-      musicId: music.id,
-      lastAccessed: updatedMusic.lastAccessed!,
-      accessCount: updatedMusic.accessCount,
-    ).catchError((e) => print('Erro ao sincronizar acesso: $e'));
+    _api
+        .updateMusicAccess(
+          musicId: music.id,
+          lastAccessed: updatedMusic.lastAccessed!,
+          accessCount: updatedMusic.accessCount,
+        )
+        .catchError((e) => print('Erro ao sincronizar acesso: $e'));
   }
 
   /// Busca sugestões
   Future<List<String>> fetchSuggestions(String query) async {
     if (query.isEmpty) return [];
-    
+
     try {
       return await _api.fetchSuggestions(query);
     } catch (e) {

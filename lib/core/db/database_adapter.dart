@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import '../queue/queued_operation.dart';
 
 // Adapta a comunicação com o banco de dados
@@ -17,4 +19,8 @@ abstract class DatabaseAdapter {
   Future<T?> getCached<T>(String key);
   Future<void> setCached<T>(String key, T value, {Duration? ttl});
   Future<void> invalidateCache(String key);
+
+  // Métodos para backup e restauração
+  Future<File> export();
+  Future<void> restore(List<int> data);
 }

@@ -5,7 +5,7 @@ import '../../../core/observability/logger.dart';
 import '../../../core/services/connectivity_service.dart';
 
 /// Service de busca com lógica de negócio centralizada
-/// 
+///
 /// Responsabilidades:
 /// - Validação de queries
 /// - Orquestração de cache + API
@@ -20,7 +20,7 @@ class SearchService {
   final AppLogger _logger = AppLogger.instance;
 
   // Stream de métricas de busca
-  final BehaviorSubject<SearchMetrics> _metricsController = 
+  final BehaviorSubject<SearchMetrics> _metricsController =
       BehaviorSubject.seeded(SearchMetrics.empty());
 
   Stream<SearchMetrics> get metrics$ => _metricsController.stream;
@@ -29,7 +29,7 @@ class SearchService {
   /// Busca músicas com validação e métricas
   Future<SearchResult> searchMusic(String query) async {
     final startTime = DateTime.now();
-    
+
     try {
       // 1. Validação
       final validationError = _validateQuery(query);
@@ -38,7 +38,7 @@ class SearchService {
           'query': query,
           'error': validationError,
         });
-        
+
         return SearchResult.error(validationError);
       }
 
@@ -71,7 +71,6 @@ class SearchService {
         query: normalizedQuery,
         duration: DateTime.now().difference(startTime),
       );
-
     } catch (e, stackTrace) {
       // Log de erro
       _logger.error('Search failed', {
@@ -87,9 +86,7 @@ class SearchService {
         hasError: true,
       );
 
-      return SearchResult.error(
-        'Erro ao buscar músicas: ${e.toString()}',
-      );
+      return SearchResult.error('Erro ao buscar músicas: ${e.toString()}');
     }
   }
 
@@ -107,7 +104,6 @@ class SearchService {
 
       // Remove duplicatas e limita
       return suggestions.toSet().take(5).toList();
-
     } catch (e) {
       _logger.warning('Failed to get suggestions', {
         'query': query,
@@ -122,15 +118,11 @@ class SearchService {
     try {
       // Busca por artista ou gênero similar
       final query = music.artist ?? music.genre?.name ?? music.title;
-      
+
       final results = await _repository.searchMusic(query);
 
       // Remove a música atual e limita a 5
-      return results
-          .where((m) => m.id != music.id)
-          .take(5)
-          .toList();
-
+      return results.where((m) => m.id != music.id).take(5).toList();
     } catch (e) {
       _logger.error('Failed to get related music', {
         'musicId': music.id,
@@ -145,9 +137,7 @@ class SearchService {
     try {
       return _repository.searchHistory;
     } catch (e) {
-      _logger.error('Failed to get search history', {
-        'error': e.toString(),
-      });
+      _logger.error('Failed to get search history', {'error': e.toString()});
       return [];
     }
   }
@@ -156,12 +146,10 @@ class SearchService {
   Future<void> clearSearchHistory() async {
     try {
       await _repository.clearSearchHistory();
-      
+
       _logger.info('Search history cleared');
     } catch (e) {
-      _logger.error('Failed to clear search history', {
-        'error': e.toString(),
-      });
+      _logger.error('Failed to clear search history', {'error': e.toString()});
       rethrow;
     }
   }
@@ -170,7 +158,7 @@ class SearchService {
   Future<void> trackMusicAccess(MusicEntity music) async {
     try {
       await _repository.trackMusicAccess(music);
-      
+
       _logger.info('Music access tracked', {
         'musicId': music.id,
         'title': music.title,
@@ -226,13 +214,12 @@ class SearchService {
         query: query,
         duration: results.duration,
       );
-
     } catch (e, stackTrace) {
       _logger.error('Search with filters failed', {
         'query': query,
         'error': e.toString(),
       }, stackTrace);
-      
+
       return SearchResult.error('Erro ao buscar com filtros');
     }
   }
@@ -256,10 +243,10 @@ class SearchService {
 
   /// Normaliza query (remove acentos, lowercase, trim)
   String _normalizeQuery(String query) {
-    return query
-        .trim()
-        .toLowerCase()
-        .replaceAll(RegExp(r'\s+'), ' '); // Remove espaços extras
+    return query.trim().toLowerCase().replaceAll(
+      RegExp(r'\s+'),
+      ' ',
+    ); // Remove espaços extras
   }
 
   /// Processa resultados (ranking, deduplicação)
@@ -279,14 +266,14 @@ class SearchService {
       // 1. Prioriza match exato no título
       final aExactTitle = a.title.toLowerCase() == query.toLowerCase();
       final bExactTitle = b.title.toLowerCase() == query.toLowerCase();
-      
+
       if (aExactTitle && !bExactTitle) return -1;
       if (!aExactTitle && bExactTitle) return 1;
 
       // 2. Prioriza título que começa com a query
       final aStartsWithQuery = a.title.toLowerCase().startsWith(query);
       final bStartsWithQuery = b.title.toLowerCase().startsWith(query);
-      
+
       if (aStartsWithQuery && !bStartsWithQuery) return -1;
       if (!aStartsWithQuery && bStartsWithQuery) return 1;
 
@@ -309,16 +296,18 @@ class SearchService {
     _metricsController.add(
       currentMetrics.copyWith(
         totalSearches: currentMetrics.totalSearches + 1,
-        successfulSearches: hasError 
-            ? currentMetrics.successfulSearches 
+        successfulSearches: hasError
+            ? currentMetrics.successfulSearches
             : currentMetrics.successfulSearches + 1,
-        failedSearches: hasError 
-            ? currentMetrics.failedSearches + 1 
+        failedSearches: hasError
+            ? currentMetrics.failedSearches + 1
             : currentMetrics.failedSearches,
         totalResultsFound: currentMetrics.totalResultsFound + resultsCount,
         averageDuration: Duration(
-          milliseconds: ((currentMetrics.averageDuration.inMilliseconds * 
-              currentMetrics.totalSearches) + duration.inMilliseconds) ~/ 
+          milliseconds:
+              ((currentMetrics.averageDuration.inMilliseconds *
+                      currentMetrics.totalSearches) +
+                  duration.inMilliseconds) ~/
               (currentMetrics.totalSearches + 1),
         ),
         lastSearchQuery: query,
@@ -357,14 +346,14 @@ class SearchResult {
     required this.results,
     required this.query,
     required this.duration,
-  })  : isSuccess = true,
-        errorMessage = null;
+  }) : isSuccess = true,
+       errorMessage = null;
 
   SearchResult.error(this.errorMessage)
-      : isSuccess = false,
-        results = const [],
-        query = '',
-        duration = Duration.zero;
+    : isSuccess = false,
+      results = const [],
+      query = '',
+      duration = Duration.zero;
 
   bool get hasResults => results.isNotEmpty;
   int get count => results.length;

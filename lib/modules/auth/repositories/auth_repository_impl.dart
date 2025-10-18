@@ -1,4 +1,3 @@
-
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:myapp/core/security/token_manager.dart';
@@ -11,8 +10,8 @@ class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl({
     required http.Client client,
     required TokenManager tokenManager,
-  })  : _client = client,
-        _tokenManager = tokenManager;
+  }) : _client = client,
+       _tokenManager = tokenManager;
 
   @override
   Future<void> login(String email, String password) async {

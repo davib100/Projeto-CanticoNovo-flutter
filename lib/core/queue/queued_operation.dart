@@ -29,8 +29,8 @@ class QueuedOperation {
     this.attempts = 0,
     this.batchId,
     this.status,
-  })  : id = id ?? const Uuid().v4(),
-        createdAt = DateTime.now();
+  }) : id = id ?? const Uuid().v4(),
+       createdAt = DateTime.now();
 
   // Verifica se a operação ainda pode ser tentada novamente
   bool get canRetry => attempts < maxRetries;

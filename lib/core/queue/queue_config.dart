@@ -24,11 +24,11 @@ class QueueConfig {
 
   /// Configurações padrão.
   factory QueueConfig.defaults() => const QueueConfig(
-        concurrency: 6,
-        processingDelay: Duration.zero,
-        retryDelay: Duration(seconds: 60),
-        maxRetries: 5,
-      );
+    concurrency: 6,
+    processingDelay: Duration.zero,
+    retryDelay: Duration(seconds: 60),
+    maxRetries: 5,
+  );
 
   QueueConfig copyWith({
     int? concurrency,

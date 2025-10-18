@@ -1,8 +1,8 @@
-
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:myapp/core/security/token_manager.dart';
 import 'package:myapp/core/observability/observability_service.dart';
+import 'package:sentry/sentry.dart';
 
 class ApiClient {
   final String baseUrl;
@@ -15,15 +15,21 @@ class ApiClient {
     required http.Client client,
     required TokenManager tokenManager,
     required ObservabilityService observabilityService,
-  })  : _client = client,
-        _tokenManager = tokenManager,
-        _observabilityService = observabilityService;
+  }) : _client = client,
+       _tokenManager = tokenManager,
+       _observabilityService = observabilityService;
 
   Future<http.Response> get(String endpoint) async {
-    final span = _observabilityService.startChild('http.get', description: endpoint);
+    final span = _observabilityService.startChild(
+      'http.get',
+      description: endpoint,
+    );
     try {
       final headers = await _getHeaders();
-      final response = await _client.get(Uri.parse('$baseUrl$endpoint'), headers: headers);
+      final response = await _client.get(
+        Uri.parse('$baseUrl$endpoint'),
+        headers: headers,
+      );
       span?.status = SpanStatus.fromHttpStatusCode(response.statusCode);
       return response;
     } catch (e) {
@@ -36,7 +42,10 @@ class ApiClient {
   }
 
   Future<http.Response> post(String endpoint, dynamic body) async {
-    final span = _observabilityService.startChild('http.post', description: endpoint);
+    final span = _observabilityService.startChild(
+      'http.post',
+      description: endpoint,
+    );
     try {
       final headers = await _getHeaders();
       final response = await _client.post(

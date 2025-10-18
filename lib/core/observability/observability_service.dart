@@ -7,7 +7,8 @@ import 'package:device_info_plus/device_info_plus.dart';
 
 /// Serviço centralizado de observabilidade com Sentry
 class ObservabilityService {
-  static final ObservabilityService _instance = ObservabilityService._internal();
+  static final ObservabilityService _instance =
+      ObservabilityService._internal();
   factory ObservabilityService() => _instance;
   ObservabilityService._internal();
 
@@ -48,54 +49,53 @@ class ObservabilityService {
       _packageInfo = await PackageInfo.fromPlatform();
       _deviceInfo = await _getDeviceInfo();
 
-      await SentryFlutter.init(
-        (options) {
-          // DSN (obrigatório)
-          options.dsn = dsn ?? _getDefaultDsn();
+      await SentryFlutter.init((options) {
+        // DSN (obrigatório)
+        options.dsn = dsn ?? _getDefaultDsn();
 
-          // Ambiente
-          options.environment = environment;
+        // Ambiente
+        options.environment = environment;
 
-          // Release e distribuição
-          options.release = '${_packageInfo?.packageName}@${_packageInfo?.version}';
-          options.dist = _packageInfo?.buildNumber;
+        // Release e distribuição
+        options.release =
+            '${_packageInfo?.packageName}@${_packageInfo?.version}';
+        options.dist = _packageInfo?.buildNumber;
 
-          // Sampling
-          options.tracesSampleRate = tracesSampleRate;
-          options.profilesSampleRate = profilesSampleRate;
+        // Sampling
+        options.tracesSampleRate = tracesSampleRate;
+        options.profilesSampleRate = profilesSampleRate;
 
-          // Performance
-          options.enableAutoSessionTracking = enableAutoSessionTracking;
-          options.enableAutoPerformanceTracing = enableAutoPerformanceTracing;
-          options.enableUserInteractionTracing = enableUserInteractionTracing;
+        // Performance
+        options.enableAutoSessionTracking = enableAutoSessionTracking;
+        options.enableAutoPerformanceTracing = enableAutoPerformanceTracing;
+        options.enableUserInteractionTracing = enableUserInteractionTracing;
 
-          // Stack traces
-          options.attachStacktrace = attachStacktrace;
-          options.attachScreenshot = true;
-          options.screenshotQuality = SentryScreenshotQuality.high;
+        // Stack traces
+        options.attachStacktrace = attachStacktrace;
+        options.attachScreenshot = true;
+        options.screenshotQuality = SentryScreenshotQuality.high;
 
-          // In-app includes
-          if (inAppIncludes != null) {
-            for (var i = 0; i < inAppIncludes.length; i++) {
-              options.addInAppInclude(inAppIncludes[i]);
-            }
+        // In-app includes
+        if (inAppIncludes != null) {
+          for (var i = 0; i < inAppIncludes.length; i++) {
+            options.addInAppInclude(inAppIncludes[i]);
           }
+        }
 
-          // Filtros e callbacks
-          options.beforeSend = _beforeSend;
-          options.beforeBreadcrumb = _beforeBreadcrumb;
+        // Filtros e callbacks
+        options.beforeSend = _beforeSend;
+        options.beforeBreadcrumb = _beforeBreadcrumb;
 
-          // Debug
-          options.debug = kDebugMode;
+        // Debug
+        options.debug = kDebugMode;
 
-          if (kDebugMode) {
-            debugPrint('🔍 Sentry initialized:');
-            debugPrint('   Environment: $environment');
-            debugPrint('   Release: ${options.release}');
-            debugPrint('   Traces Sample Rate: ${tracesSampleRate * 100}%');
-          }
-        },
-      );
+        if (kDebugMode) {
+          debugPrint('🔍 Sentry initialized:');
+          debugPrint('   Environment: $environment');
+          debugPrint('   Release: ${options.release}');
+          debugPrint('   Traces Sample Rate: ${tracesSampleRate * 100}%');
+        }
+      });
 
       // Configurar contexto global
       await _setupGlobalContext();
@@ -105,7 +105,6 @@ class ObservabilityService {
       if (kDebugMode) {
         debugPrint('✅ ObservabilityService initialized successfully');
       }
-
     } catch (e, stackTrace) {
       if (kDebugMode) {
         debugPrint('❌ Failed to initialize ObservabilityService: $e');
@@ -126,7 +125,9 @@ class ObservabilityService {
   }) async {
     if (!_isInitialized) {
       if (kDebugMode) {
-        debugPrint('⚠️  ObservabilityService not initialized. Exception not captured.');
+        debugPrint(
+          '⚠️  ObservabilityService not initialized. Exception not captured.',
+        );
       }
       return SentryId.empty();
     }
@@ -171,7 +172,9 @@ class ObservabilityService {
   }) async {
     if (!_isInitialized) {
       if (kDebugMode) {
-        debugPrint('⚠️  ObservabilityService not initialized. Message not captured.');
+        debugPrint(
+          '⚠️  ObservabilityService not initialized. Message not captured.',
+        );
       }
       return SentryId.empty();
     }
@@ -307,10 +310,7 @@ class ObservabilityService {
     final span = Sentry.getSpan();
     if (span == null) return null;
 
-    final child = span.startChild(
-      operation,
-      description: description,
-    );
+    final child = span.startChild(operation, description: description);
 
     if (data != null) {
       data.forEach((key, value) {
@@ -331,12 +331,9 @@ class ObservabilityService {
     if (!_isInitialized) return;
 
     await Sentry.configureScope((scope) {
-      scope.setUser(SentryUser(
-        id: id,
-        email: email,
-        username: username,
-        data: data,
-      ));
+      scope.setUser(
+        SentryUser(id: id, email: email, username: username, data: data),
+      );
     });
   }
 
@@ -398,9 +395,7 @@ class ObservabilityService {
     await Sentry.configureScope((scope) {
       // Device context
       if (_deviceInfo != null) {
-        scope.setContexts('device_details', {
-          'info': _deviceInfo,
-        });
+        scope.setContexts('device_details', {'info': _deviceInfo});
       }
 
       // App context
@@ -421,51 +416,48 @@ class ObservabilityService {
     });
   }
 
- /// Callback antes de enviar evento
-FutureOr<SentryEvent?> _beforeSend(SentryEvent event, Hint hint) {
-  // Adicionar informações extras aos eventos
-  if (kDebugMode) {
-    debugPrint('📤 Sending event to Sentry: ${event.eventId}');
-    debugPrint('   Level: ${event.level}');
-    debugPrint('   Message: ${event.message?.formatted}');
+  /// Callback antes de enviar evento
+  FutureOr<SentryEvent?> _beforeSend(SentryEvent event, Hint hint) {
+    // Adicionar informações extras aos eventos
+    if (kDebugMode) {
+      debugPrint('📤 Sending event to Sentry: ${event.eventId}');
+      debugPrint('   Level: ${event.level}');
+      debugPrint('   Message: ${event.message?.formatted}');
+    }
+
+    // Filtrar eventos sensíveis em produção
+    if (!kDebugMode && event.message?.formatted.contains('password') == true) {
+      return null; // Não enviar
+    }
+
+    return event;
   }
 
-  // Filtrar eventos sensíveis em produção
-  if (!kDebugMode && event.message?.formatted.contains('password') == true) {
-    return null; // Não enviar
+  /// Callback antes de adicionar breadcrumb
+  Breadcrumb? _beforeBreadcrumb(Breadcrumb? breadcrumb, Hint hint) {
+    if (breadcrumb == null) return null;
+
+    // Filtrar breadcrumbs sensíveis
+    if (breadcrumb.data?.containsKey('password') == true) {
+      final newData = Map<String, dynamic>.from(breadcrumb.data!);
+      newData.remove('password');
+
+      return Breadcrumb(
+        message: breadcrumb.message,
+        category: breadcrumb.category,
+        level: breadcrumb.level,
+        type: breadcrumb.type,
+        timestamp: breadcrumb.timestamp,
+        data: newData,
+      );
+    }
+
+    return breadcrumb;
   }
-
-  return event;
-}
-
-/// Callback antes de adicionar breadcrumb
-Breadcrumb? _beforeBreadcrumb(Breadcrumb? breadcrumb, Hint hint) {
-  if (breadcrumb == null) return null;
-
-  // Filtrar breadcrumbs sensíveis
-  if (breadcrumb.data?.containsKey('password') == true) {
-    final newData = Map<String, dynamic>.from(breadcrumb.data!);
-    newData.remove('password');
-
-    return Breadcrumb(
-      message: breadcrumb.message,
-      category: breadcrumb.category,
-      level: breadcrumb.level,
-      type: breadcrumb.type,
-      timestamp: breadcrumb.timestamp,
-      data: newData,
-    );
-  }
-
-  return breadcrumb;
-}
 
   /// Obtém DSN padrão (deve ser configurado em environment variables)
   String _getDefaultDsn() {
-    return const String.fromEnvironment(
-      'SENTRY_DSN',
-      defaultValue: '',
-    );
+    return const String.fromEnvironment('SENTRY_DSN', defaultValue: '');
   }
 
   /// Obtém informações do dispositivo
@@ -604,7 +596,11 @@ class ObservabilityReport {
 /// A no-op implementation of [ISentrySpan] for when Sentry is not initialized.
 class NoOpSentrySpan implements ISentrySpan {
   @override
-  Future<void> finish({DateTime? endTimestamp, Hint? hint, SpanStatus? status}) async {}
+  Future<void> finish({
+    DateTime? endTimestamp,
+    Hint? hint,
+    SpanStatus? status,
+  }) async {}
 
   @override
   void removeData(String key) {}
@@ -622,7 +618,11 @@ class NoOpSentrySpan implements ISentrySpan {
   void setTag(String key, String value) {}
 
   @override
-  ISentrySpan startChild(String operation, {String? description, DateTime? startTimestamp}) {
+  ISentrySpan startChild(
+    String operation, {
+    String? description,
+    DateTime? startTimestamp,
+  }) {
     return this;
   }
 
@@ -639,20 +639,19 @@ class NoOpSentrySpan implements ISentrySpan {
 
   @override
   SentrySpanContext get context => SentrySpanContext(
-        traceId: SentryId.empty(),
-        spanId: SpanId.empty(),
-        parentSpanId: SpanId.empty(),
-        operation: 'noop',
-      );
+    traceId: SentryId.empty(),
+    spanId: SpanId.empty(),
+    parentSpanId: SpanId.empty(),
+    operation: 'noop',
+  );
 
   @override
   noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 
-
   @override
   SentryTraceContextHeader? traceContext() {
-  return null;
-}
+    return null;
+  }
 
   @override
   SentryTracesSamplingDecision? get samplingDecision => null;

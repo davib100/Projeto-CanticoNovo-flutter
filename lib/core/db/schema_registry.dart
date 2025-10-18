@@ -60,7 +60,9 @@ class SchemaRegistry {
       // Validar colunas
       for (final column in table.$columns) {
         if (column.name.isEmpty) {
-          errors.add('Table ${table.actualTableName} has column with empty name');
+          errors.add(
+            'Table ${table.actualTableName} has column with empty name',
+          );
         }
       }
     }
@@ -178,9 +180,5 @@ class Index {
   final List<String> columns;
   final bool unique;
 
-  Index({
-    required this.table,
-    required this.columns,
-    this.unique = false,
-  });
+  Index({required this.table, required this.columns, this.unique = false});
 }

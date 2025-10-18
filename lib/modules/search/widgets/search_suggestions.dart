@@ -37,10 +37,7 @@ class SearchSuggestions extends StatelessWidget {
               bottom: isLast ? const Radius.circular(12) : Radius.zero,
             ),
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 border: !isLast
                     ? Border(bottom: BorderSide(color: Colors.grey[200]!))

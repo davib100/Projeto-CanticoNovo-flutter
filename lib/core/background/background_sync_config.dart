@@ -14,7 +14,7 @@ class BackgroundSyncConfig {
   final int syncWindowStart; // hora
   final int syncWindowEnd; // hora
   final String apiBaseUrl;
-  
+
   const BackgroundSyncConfig({
     required this.autoSyncEnabled,
     required this.syncInterval,
@@ -30,7 +30,7 @@ class BackgroundSyncConfig {
     required this.syncWindowEnd,
     required this.apiBaseUrl,
   });
-  
+
   factory BackgroundSyncConfig.defaults() {
     return const BackgroundSyncConfig(
       autoSyncEnabled: false,
@@ -48,7 +48,7 @@ class BackgroundSyncConfig {
       apiBaseUrl: '',
     );
   }
-  
+
   BackgroundSyncConfig copyWith({
     bool? autoSyncEnabled,
     Duration? syncInterval,
@@ -80,7 +80,7 @@ class BackgroundSyncConfig {
       apiBaseUrl: apiBaseUrl ?? this.apiBaseUrl,
     );
   }
-  
+
   Map<String, dynamic> toJson() {
     return {
       'autoSyncEnabled': autoSyncEnabled,
@@ -98,12 +98,14 @@ class BackgroundSyncConfig {
       'apiBaseUrl': apiBaseUrl,
     };
   }
-  
+
   factory BackgroundSyncConfig.fromJson(Map<String, dynamic> json) {
     return BackgroundSyncConfig(
       autoSyncEnabled: json['autoSyncEnabled'] as bool,
       syncInterval: Duration(minutes: json['syncIntervalMinutes'] as int),
-      minimumSyncInterval: Duration(minutes: json['minimumSyncIntervalMinutes'] as int),
+      minimumSyncInterval: Duration(
+        minutes: json['minimumSyncIntervalMinutes'] as int,
+      ),
       wifiOnly: json['wifiOnly'] as bool,
       requireCharging: json['requireCharging'] as bool,
       requireBatteryNotLow: json['requireBatteryNotLow'] as bool,

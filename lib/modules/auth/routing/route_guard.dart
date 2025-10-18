@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 abstract class RouteGuard {
   /// Verifica se pode acessar a rota
   Future<bool> canActivate(BuildContext context);
-  
+
   /// Rota de redirecionamento se não puder acessar
   String get redirectTo;
 }

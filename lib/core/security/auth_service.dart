@@ -1,4 +1,3 @@
-
 import 'package:myapp/core/security/token_manager.dart';
 import 'package:myapp/modules/auth/repositories/auth_repository.dart';
 
@@ -9,8 +8,8 @@ class AuthService {
   AuthService({
     required AuthRepository authRepository,
     required TokenManager tokenManager,
-  })  : _authRepository = authRepository,
-        _tokenManager = tokenManager;
+  }) : _authRepository = authRepository,
+       _tokenManager = tokenManager;
 
   Future<void> login(String email, String password) async {
     await _authRepository.login(email, password);

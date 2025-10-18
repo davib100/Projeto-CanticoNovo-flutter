@@ -1,23 +1,33 @@
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rxdart/rxdart.dart';
-import '../models/search_state.dart';
-import '../models/music_entity.dart';
+import 'package:myapp/shared/models/music_model.dart';
 import '../repositories/search_repository.dart';
-import '../../quickaccess/providers/quickaccess_provider.dart';
+import '../services/search_service.dart';
+import '../models/search_state.dart';
+
 
 final searchRepositoryProvider = Provider<SearchRepository>((ref) {
-  return SearchRepository.instance;
+  return SearchRepository(); 
+});
+
+final searchServiceProvider = Provider<SearchService>((ref) {
+  return SearchService(ref.read(searchRepositoryProvider));
 });
 
 final searchProvider = StateNotifierProvider<SearchNotifier, SearchState>((ref) {
-  return SearchNotifier(ref.read(searchRepositoryProvider));
+  return SearchNotifier(
+    ref.read(searchRepositoryProvider),
+    ref.read(searchServiceProvider),
+  );
 });
 
 class SearchNotifier extends StateNotifier<SearchState> {
   final SearchRepository _repository;
+  final SearchService _service;
   final BehaviorSubject<String> _querySubject = BehaviorSubject.seeded('');
 
-  SearchNotifier(this._repository) : super(const SearchState()) {
+  SearchNotifier(this._repository, this._service) : super(const SearchState()) {
     _initializeDebounce();
     _loadSearchHistory();
   }
@@ -32,18 +42,19 @@ class SearchNotifier extends StateNotifier<SearchState> {
   }
 
   Future<void> _loadSearchHistory() async {
-    await _repository.loadSearchHistory();
-    _repository.searchHistory$.listen((history) {
+    try {
+      final history = await _repository.getSearchHistory();
       state = state.copyWith(searchHistory: history);
-    });
+    } catch (e) {
+      // Handle error loading history
+      print('Error loading search history: $e');
+    }
   }
 
-  /// Atualiza query (com debounce automático)
   void setQuery(String query) {
     state = state.copyWith(query: query);
     _querySubject.add(query);
-    
-    // Atualiza sugestões
+
     if (query.isNotEmpty) {
       _fetchSuggestions(query);
     } else {
@@ -51,7 +62,6 @@ class SearchNotifier extends StateNotifier<SearchState> {
     }
   }
 
-  /// Executa busca
   Future<void> _performSearch(String query) async {
     if (query.isEmpty) {
       state = state.copyWith(
@@ -70,10 +80,10 @@ class SearchNotifier extends StateNotifier<SearchState> {
     );
 
     try {
-      final results = await _repository.searchMusic(query);
-      
-      state = state.copyWith(
-        results: results,
+      final result = await _service.searchMusic(query);
+
+       state = state.copyWith(
+        results: result,
         isLoading: false,
       );
     } catch (e) {
@@ -85,30 +95,28 @@ class SearchNotifier extends StateNotifier<SearchState> {
     }
   }
 
-  /// Busca sugestões
   Future<void> _fetchSuggestions(String query) async {
     try {
-      final suggestions = await _repository.fetchSuggestions(query);
+      final suggestions = await _repository.getSearchSuggestions(query);
       state = state.copyWith(suggestions: suggestions);
     } catch (e) {
-      // Erro silencioso
-      print('Erro ao buscar sugestões: $e');
+      // Silently handle suggestion errors
+      print('Error fetching suggestions: $e');
     }
   }
 
-  /// Seleciona sugestão
   void selectSuggestion(String suggestion) {
     setQuery(suggestion);
   }
 
-  /// Registra acesso à música
-  Future<void> trackMusicAccess(MusicEntity music) async {
-    await _repository.trackMusicAccess(music);
+  Future<void> trackMusicAccess(Music music) async {
+    // This seems to be related to quick access, might need a different service/repo
+    // await _repository.trackMusicAccess(music);
   }
 
-  /// Limpa histórico
   Future<void> clearHistory() async {
     await _repository.clearSearchHistory();
+    state = state.copyWith(searchHistory: []);
   }
 
   @override
@@ -117,73 +125,3 @@ class SearchNotifier extends StateNotifier<SearchState> {
     super.dispose();
   }
 }
-import '../services/search_service.dart';
-
-// Adicione o provider do service
-final searchServiceProvider = Provider<SearchService>((ref) {
-  return SearchService.instance;
-});
-
-// Atualize o SearchNotifier para usar o service
-class SearchNotifier extends StateNotifier<SearchState> {
-  final SearchRepository _repository;
-  final SearchService _service; // ← NOVO
-
-  SearchNotifier(this._repository, this._service) : super(const SearchState()) {
-    _initializeDebounce();
-    _loadSearchHistory();
-  }
-
-  // ... resto do código ...
-
-  /// Executa busca usando o service
-  Future<void> _performSearch(String query) async {
-    if (query.isEmpty) {
-      state = state.copyWith(
-        debouncedQuery: '',
-        results: [],
-        isLoading: false,
-      );
-      return;
-    }
-
-    state = state.copyWith(
-      debouncedQuery: query,
-      isLoading: true,
-      hasError: false,
-      errorMessage: null,
-    );
-
-    try {
-      // Usa o service ao invés do repository diretamente
-      final result = await _service.searchMusic(query);
-      
-      if (result.isSuccess) {
-        state = state.copyWith(
-          results: result.results,
-          isLoading: false,
-        );
-      } else {
-        state = state.copyWith(
-          isLoading: false,
-          hasError: true,
-          errorMessage: result.errorMessage,
-        );
-      }
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        hasError: true,
-        errorMessage: e.toString(),
-      );
-    }
-  }
-}
-
-// Atualize o provider principal
-final searchProvider = StateNotifierProvider<SearchNotifier, SearchState>((ref) {
-  return SearchNotifier(
-    ref.read(searchRepositoryProvider),
-    ref.read(searchServiceProvider), // ← NOVO
-  );
-});

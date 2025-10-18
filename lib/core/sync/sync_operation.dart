@@ -9,7 +9,7 @@ class SyncOperation {
   final Map<String, dynamic> payload;
   final DateTime createdAt;
   final int priority;
-  
+
   SyncOperation({
     required this.id,
     required this.entityType,
@@ -19,7 +19,7 @@ class SyncOperation {
     required this.createdAt,
     required this.priority,
   });
-  
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -31,7 +31,7 @@ class SyncOperation {
       'priority': priority,
     };
   }
-  
+
   factory SyncOperation.fromJson(Map<String, dynamic> json) {
     return SyncOperation(
       id: json['id'] as String,
@@ -52,7 +52,7 @@ class ServerOperation {
   final String operationType;
   final int version;
   final Map<String, dynamic> data;
-  
+
   ServerOperation({
     required this.entityType,
     required this.entityId,
@@ -60,7 +60,7 @@ class ServerOperation {
     required this.version,
     required this.data,
   });
-  
+
   factory ServerOperation.fromJson(Map<String, dynamic> json) {
     return ServerOperation(
       entityType: json['entity_type'] as String,
@@ -75,9 +75,9 @@ class ServerOperation {
 /// Resposta de batch
 class BatchResponse {
   final List<OperationResult> results;
-  
+
   BatchResponse({required this.results});
-  
+
   factory BatchResponse.fromJson(Map<String, dynamic> json) {
     return BatchResponse(
       results: (json['results'] as List)
@@ -94,7 +94,7 @@ class OperationResult {
   final bool hasConflict;
   final Map<String, dynamic>? serverData;
   final String? error;
-  
+
   OperationResult({
     required this.localOperation,
     required this.success,
@@ -102,7 +102,7 @@ class OperationResult {
     this.serverData,
     this.error,
   });
-  
+
   factory OperationResult.fromJson(Map<String, dynamic> json) {
     return OperationResult(
       localOperation: SyncOperation.fromJson(json['local_operation']),
@@ -120,14 +120,14 @@ class LocalVersion {
   final String entityId;
   final int version;
   final Map<String, dynamic> data;
-  
+
   LocalVersion({
     required this.entityType,
     required this.entityId,
     required this.version,
     required this.data,
   });
-  
+
   factory LocalVersion.fromJson(Map<String, dynamic> json) {
     return LocalVersion(
       entityType: json['entity_type'] as String? ?? 'unknown',

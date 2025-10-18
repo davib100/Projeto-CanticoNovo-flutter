@@ -2,7 +2,7 @@
 
 abstract class BackgroundSyncState {
   const BackgroundSyncState();
-  
+
   factory BackgroundSyncState.idle() = BackgroundSyncStateIdle;
   factory BackgroundSyncState.syncing({
     required double progress,
@@ -26,17 +26,14 @@ class BackgroundSyncStateIdle extends BackgroundSyncState {
 class BackgroundSyncStateSyncing extends BackgroundSyncState {
   final double progress;
   final String? message;
-  
-  const BackgroundSyncStateSyncing({
-    required this.progress,
-    this.message,
-  });
+
+  const BackgroundSyncStateSyncing({required this.progress, this.message});
 }
 
 class BackgroundSyncStateCompleted extends BackgroundSyncState {
   final DateTime lastSyncTime;
   final Duration duration;
-  
+
   const BackgroundSyncStateCompleted({
     required this.lastSyncTime,
     required this.duration,
@@ -46,11 +43,8 @@ class BackgroundSyncStateCompleted extends BackgroundSyncState {
 class BackgroundSyncStateError extends BackgroundSyncState {
   final String error;
   final DateTime? lastSyncTime;
-  
-  const BackgroundSyncStateError({
-    required this.error,
-    this.lastSyncTime,
-  });
+
+  const BackgroundSyncStateError({required this.error, this.lastSyncTime});
 }
 
 class BackgroundSyncStatePaused extends BackgroundSyncState {

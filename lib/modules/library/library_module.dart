@@ -14,15 +14,15 @@ class LibraryModule extends BaseModule {
   Future<void> initialize() async {
     // Registro de dependências
     final container = ProviderContainer();
-    
+
     logger.info('🎵 LibraryModule: Inicializando módulo...');
-    
+
     // Registra serviços no orquestrador
     await registerServices();
-    
+
     // Executa migração de schema se necessário
     await runMigrations();
-    
+
     logger.success('✅ LibraryModule: Módulo inicializado com sucesso');
   }
 

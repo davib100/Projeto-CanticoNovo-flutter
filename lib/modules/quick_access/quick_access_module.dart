@@ -12,27 +12,31 @@ import 'presentation/quick_access_screen.dart';
 )
 class QuickAccessModule {
   static const String moduleName = 'QuickAccessModule';
-  
+
   /// Inicialização do módulo
   static Future<void> initialize() async {
     final logger = AppLogger(moduleName);
-    
+
     try {
       logger.info('🚀 Inicializando QuickAccessModule...');
-      
+
       // Registrar rotas
       _registerRoutes();
-      
+
       // Limpar itens expirados (>24h)
       await _cleanupExpiredItems();
-      
+
       logger.success('✅ QuickAccessModule inicializado com sucesso');
     } catch (e, stack) {
-      logger.error('❌ Erro ao inicializar QuickAccessModule', error: e, stackTrace: stack);
+      logger.error(
+        '❌ Erro ao inicializar QuickAccessModule',
+        error: e,
+        stackTrace: stack,
+      );
       rethrow;
     }
   }
-  
+
   static void _registerRoutes() {
     AppOrchestrator.registerRoute(
       name: 'QuickAccess',
@@ -40,11 +44,11 @@ class QuickAccessModule {
       builder: (context) => const QuickAccessScreen(),
     );
   }
-  
+
   static Future<void> _cleanupExpiredItems() async {
     final logger = AppLogger(moduleName);
     logger.info('🧹 Limpando itens expirados (>24h)...');
-    
+
     try {
       // Será implementado no repository
       // await QuickAccessRepository.cleanupExpiredItems();

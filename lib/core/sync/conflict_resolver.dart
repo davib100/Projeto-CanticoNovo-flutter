@@ -10,7 +10,7 @@ class ConflictContext {
   final dynamic localData;
   final Map<String, dynamic> serverData;
   final ConflictResolutionStrategy strategy;
-  
+
   ConflictContext({
     required this.localData,
     required this.serverData,
@@ -26,7 +26,7 @@ class ConflictResolution {
   final ConflictResolutionStrategy strategy;
   final ConflictWinner winner;
   final ConflictContext context;
-  
+
   ConflictResolution({
     required this.isResolved,
     required this.requiresManualResolution,
@@ -47,12 +47,7 @@ enum ConflictResolutionStrategy {
 }
 
 /// Vencedor do conflito
-enum ConflictWinner {
-  client,
-  server,
-  merged,
-  none,
-}
+enum ConflictWinner { client, server, merged, none }
 
 /// Resolvedor padrão
 class DefaultConflictResolver implements ConflictResolver {
@@ -76,15 +71,15 @@ class DefaultConflictResolver implements ConflictResolver {
         );
     }
   }
-  
+
   ConflictResolution _lastWriteWins(ConflictContext context) {
     final localTimestamp = DateTime.parse(
-      context.localData['updated_at'] ?? DateTime.now().toIso8601String()
+      context.localData['updated_at'] ?? DateTime.now().toIso8601String(),
     );
     final serverTimestamp = DateTime.parse(
-      context.serverData['updated_at'] ?? DateTime.now().toIso8601String()
+      context.serverData['updated_at'] ?? DateTime.now().toIso8601String(),
     );
-    
+
     if (serverTimestamp.isAfter(localTimestamp)) {
       return ConflictResolution(
         isResolved: true,
@@ -105,7 +100,7 @@ class DefaultConflictResolver implements ConflictResolver {
       );
     }
   }
-  
+
   ConflictResolution _serverWins(ConflictContext context) {
     return ConflictResolution(
       isResolved: true,
@@ -116,7 +111,7 @@ class DefaultConflictResolver implements ConflictResolver {
       context: context,
     );
   }
-  
+
   ConflictResolution _clientWins(ConflictContext context) {
     return ConflictResolution(
       isResolved: true,
