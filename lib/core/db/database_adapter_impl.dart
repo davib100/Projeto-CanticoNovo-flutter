@@ -17,9 +17,9 @@ class Operations extends Table {
   TextColumn get id => text()();
   TextColumn get type => text()();
   TextColumn get data => text().nullable()();
-  IntColumn get priority => int()();
-  IntColumn get maxRetries => int()();
-  IntColumn get attempts => int()();
+  IntColumn get priority => integer()();
+  IntColumn get maxRetries => integer()();
+  IntColumn get attempts => integer()();
   TextColumn get batchId => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
   TextColumn get status => text().nullable()();
@@ -40,13 +40,13 @@ class AppDatabase extends _$AppDatabase {
       OperationsCompanion.insert(
         id: operation.id,
         type: operation.type,
-        data: operation.data.toString(),
+        data: Value(operation.data),
         priority: operation.priority.index,
         maxRetries: operation.maxRetries,
         attempts: operation.attempts,
-        batchId: operation.batchId,
+        batchId: Value(operation.batchId),
         createdAt: operation.createdAt,
-        status: operation.status,
+        status: Value(operation.status),
       ),
       mode: InsertMode.replace,
     );
@@ -69,12 +69,13 @@ class AppDatabase extends _$AppDatabase {
 
   Future<List<QueuedOperation>> getPendingOperations() async {
     final result =
-        await (select(operations)..where(
-              (tbl) =>
-                  tbl.status.isNull() |
-                  tbl.status.equals('paused') |
-                  tbl.status.equals('running'),
-            ))
+        await (select(operations)
+              ..where(
+                (tbl) =>
+                    tbl.status.isNull() |
+                    tbl.status.equals('paused') |
+                    tbl.status.equals('running'),
+              ))
             .get();
 
     return result

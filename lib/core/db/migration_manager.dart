@@ -1,9 +1,9 @@
 // core/db/migration_manager.dart
 import 'dart:developer' as developer;
 import 'package:drift/drift.dart';
-import '../../../core/migrations/migration_v1_to_v2.dart';
-import '../../../core/migrations/migration_v2_to_v3.dart';
-import '../../../core/migrations/migration_v3_to_v4.dart';
+import '../../../migrations/migration_v1_to_v2.dart';
+import '../../../migrations/migration_v2_to_v3.dart';
+import '../../../migrations/migration_v3_to_v4.dart';
 
 class MigrationManager {
   static final Map<int, Migration> _migrations = {

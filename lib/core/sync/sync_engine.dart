@@ -34,7 +34,7 @@ class SyncEngine {
 
   // Resolvedores de conflito
   final Map<String, ConflictResolver> _conflictResolvers = {};
-  ConflictResolutionStrategy _defaultStrategy =
+  final ConflictResolutionStrategy _defaultStrategy =
       ConflictResolutionStrategy.lastWriteWins;
 
   // Configurações de sincronização
