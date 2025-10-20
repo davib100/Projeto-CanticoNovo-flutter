@@ -2,19 +2,21 @@
 // core/sync/sync_engine.dart
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io'; // Precisamos para a compressão gzip
 
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sentry_flutter/sentry_flutter.dart' show SpanStatus;
+import 'package:myapp/core/services/api_exception.dart'; // Importa a exceção customizada
 import '../db/database_adapter.dart';
 import '../observability/observability_service.dart';
-import '../queue/queued_operation.dart';
+//import '../queue/queued_operation.dart';
 import '../services/api_client.dart';
 import 'conflict_resolver.dart';
 import '../../shared/models/sync_models.dart';
 import 'sync_operation.dart';
 import 'sync_state.dart';
+
 
 /// Motor de sincronização offline-first com suporte a:
 /// - Sincronização incremental (delta sync)
@@ -195,7 +197,7 @@ class SyncEngine {
       _updateState(SyncState.completed(result: result));
       _syncMetrics.syncCompleted(result);
 
-      await transaction.finish(status: SpanStatus.ok());
+      await transaction.finish(status: const SpanStatus.ok());
 
       _observability.addBreadcrumb(
         'Sync completed successfully',
@@ -214,7 +216,7 @@ class SyncEngine {
       _updateState(SyncState.cancelled());
       _syncMetrics.syncCancelled();
 
-      await transaction.finish(status: SpanStatus.cancelled());
+      await transaction.finish(status: const SpanStatus.cancelled());
 
       _syncCompleter?.completeError(SyncCancelledException());
       rethrow;
@@ -238,7 +240,7 @@ class SyncEngine {
         },
       );
 
-      await transaction.finish(status: SpanStatus.internalError());
+      await transaction.finish(status: const SpanStatus.internalError());
 
       _syncCompleter?.completeError(e, stackTrace);
       rethrow;
@@ -267,7 +269,7 @@ class SyncEngine {
       );
 
       if (pendingOps.isEmpty) {
-        await span?.finish(status: SpanStatus.ok());
+        await span?.finish(status: const SpanStatus.ok());
         return _SyncOperationResult.empty();
       }
 
@@ -291,29 +293,39 @@ class SyncEngine {
         try {
           // 3. Enviar batch para o servidor
           final response = await _sendBatchToServer(batch);
+          final batchResponse = BatchResponse.fromJson(response);
 
           // 4. Processar resposta
-          for (final opResult in response.results) {
+          for (final opResult in batchResponse.results) {
             if (opResult.hasConflict) {
-              // Resolver conflito
-              final resolved = await _resolveConflict(
-                opResult.localOperation,
-                opResult.serverData,
-              );
+              final serverData = opResult.serverData;
+              if (serverData != null) {
+                final resolved = await _resolveConflict(
+                  opResult.localOperation,
+                  serverData,
+                );
 
-              if (resolved) {
-                conflictCount++;
+                if (resolved) {
+                  conflictCount++;
+                } else {
+                  errors.add(
+                    SyncError(
+                      message:
+                          'Unresolved conflict for ${opResult.localOperation.id}',
+                      timestamp: DateTime.now(),
+                    ),
+                  );
+                }
               } else {
                 errors.add(
                   SyncError(
                     message:
-                        'Unresolved conflict for ${opResult.localOperation.id}',
+                        'Conflict reported for ${opResult.localOperation.id} but no server data was provided.',
                     timestamp: DateTime.now(),
                   ),
                 );
               }
             } else if (opResult.success) {
-              // Marcar como sincronizado
               await _markOperationAsSynced(opResult.localOperation);
               successCount++;
             } else {
@@ -352,7 +364,7 @@ class SyncEngine {
         }
       }
 
-      await span?.finish(status: SpanStatus.ok());
+      await span?.finish(status: const SpanStatus.ok());
 
       return _SyncOperationResult(
         operationsCount: successCount,
@@ -360,7 +372,7 @@ class SyncEngine {
         errors: errors,
       );
     } catch (e) {
-      await span?.finish(status: SpanStatus.internalError());
+      await span?.finish(status: const SpanStatus.internalError());
       rethrow;
     }
   }
@@ -394,7 +406,7 @@ class SyncEngine {
           .toList();
 
       if (serverOperations.isEmpty) {
-        await span?.finish(status: SpanStatus.ok());
+        await span?.finish(status: const SpanStatus.ok());
         return _SyncOperationResult.empty();
       }
 
@@ -468,7 +480,7 @@ class SyncEngine {
         }
       });
 
-      await span?.finish(status: SpanStatus.ok());
+      await span?.finish(status: const SpanStatus.ok());
 
       return _SyncOperationResult(
         operationsCount: appliedCount,
@@ -476,7 +488,7 @@ class SyncEngine {
         errors: errors,
       );
     } catch (e) {
-      await span?.finish(status: SpanStatus.internalError());
+      await span?.finish(status: const SpanStatus.internalError());
       rethrow;
     }
   }
@@ -573,19 +585,21 @@ class SyncEngine {
   }
 
   /// Envia batch para o servidor
-  Future<BatchResponse> _sendBatchToServer(List<SyncOperation> batch) async {
-    // Comprimir payload se habilitado
-    final payload = _config.compressionEnabled
-        ? await _compressPayload(batch)
-        : batch.map((op) => op.toJson()).toList();
+  Future<Map<String, dynamic>> _sendBatchToServer(
+      List<SyncOperation> batch) async {
+    dynamic payload = batch.map((op) => op.toJson()).toList();
+    bool isCompressed = false;
 
-    final response = await _apiClient.post('/sync/push', {
+    if (_config.compressionEnabled) {
+      payload = await _compressPayload(payload);
+      isCompressed = true;
+    }
+
+    return await _apiClient.post('/sync/push', {
       'operations': payload,
-      'compressed': _config.compressionEnabled,
+      'compressed': isCompressed,
       'client_timestamp': DateTime.now().toIso8601String(),
     });
-
-    return BatchResponse.fromJson(response);
   }
 
   /// Retry com exponential backoff
@@ -742,12 +756,12 @@ class SyncEngine {
     switch (operation.operationType) {
       case 'insert':
       case 'update':
-        await _db.insertGeneric(operation.entityType, operation.data);
+        await _db.insertGeneric(operation.entityType, operation.data, transaction: transaction);
         break;
       case 'delete':
         await _db.deleteGeneric(operation.entityType, 'id = ?', [
           operation.entityId,
-        ]);
+        ], transaction: transaction);
         break;
     }
   }
@@ -784,8 +798,8 @@ class SyncEngine {
   }
 
   /// Comprime payload para otimizar bandwidth
-  Future<String> _compressPayload(List<SyncOperation> operations) async {
-    final json = jsonEncode(operations.map((op) => op.toJson()).toList());
+  Future<String> _compressPayload(dynamic payload) async {
+    final json = jsonEncode(payload);
     final bytes = utf8.encode(json);
     final compressed = gzip.encode(bytes);
     return base64.encode(compressed);
@@ -944,11 +958,11 @@ class SyncException implements Exception {
 }
 
 class SyncInProgressException extends SyncException {
-  SyncInProgressException(String message) : super(message);
+  SyncInProgressException(super.message);
 }
 
 class NoConnectivityException extends SyncException {
-  NoConnectivityException(String message) : super(message);
+  NoConnectivityException(super.message);
 }
 
 class SyncCancelledException extends SyncException {

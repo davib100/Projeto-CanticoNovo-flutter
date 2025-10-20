@@ -188,4 +188,61 @@ class DatabaseAdapterImpl extends DatabaseAdapter {
     await file.writeAsBytes(data);
     _db = AppDatabase();
   }
+
+  @override
+  Future<void> transaction(Future<void> Function(dynamic txn) action) async {
+    return _db.transaction(() => action(_db));
+  }
+
+  @override
+  Future<void> insertGeneric(String table, Map<String, dynamic> data, {dynamic transaction}) async {
+    final db = transaction ?? _db;
+    final columns = data.keys.join(', ');
+    final placeholders = List.filled(data.length, '?').join(', ');
+    final values = data.values.toList();
+    final statement = 'INSERT INTO $table ($columns) VALUES ($placeholders)';
+    await (db as AppDatabase).executor.runInsert(statement, values);
+  }
+
+ @override
+  Future<void> updateGeneric(String table, Map<String, dynamic> data, String where, List<dynamic> whereArgs, {dynamic transaction}) async {
+    final db = transaction ?? _db;
+    String setClause = data.keys.map((key) => '$key = ?').join(', ');
+    final allArgs = [...data.values, ...whereArgs];
+    final statement = 'UPDATE $table SET $setClause WHERE $where';
+    await (db as AppDatabase).executor.runUpdate(statement, allArgs);
+  }
+
+  @override
+  Future<void> deleteGeneric(String table, String where, List<dynamic> whereArgs, {dynamic transaction}) async {
+    final db = transaction ?? _db;
+    final statement = 'DELETE FROM $table WHERE $where';
+    await (db as AppDatabase).executor.runDelete(statement, whereArgs);
+  }
+
+ @override
+  Future<List<Map<String, dynamic>>> queryGeneric(String table, {List<String>? columns, String? where, List? whereArgs, String? orderBy, int? limit}) async {
+    final db = _db;
+    final selectColumns = (columns == null || columns.isEmpty) ? '*' : columns.join(', ');
+    var sql = 'SELECT $selectColumns FROM $table';
+
+    if (where != null && where.isNotEmpty) {
+      sql += ' WHERE $where';
+    }
+    if (orderBy != null && orderBy.isNotEmpty) {
+      sql += ' ORDER BY $orderBy';
+    }
+    if (limit != null) {
+      sql += ' LIMIT $limit';
+    }
+
+    final result = await db.executor.runSelect(sql, whereArgs?.cast<Object?>() ?? []);
+    return result.map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
+  @override
+  Future<void> customStatement(String statement, {List<dynamic>? args, dynamic transaction}) async {
+    final db = transaction ?? _db;
+    await (db as AppDatabase).executor.runCustom(statement, args ?? []);
+  }
 }

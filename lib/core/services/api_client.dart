@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:myapp/core/security/token_manager.dart';
 import 'package:myapp/core/observability/observability_service.dart';
-import 'package:sentry/sentry.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
+
+import 'api_exception.dart'; // Importa a exceção customizada
 
 class ApiClient {
   final String baseUrl;
@@ -19,45 +21,68 @@ class ApiClient {
        _tokenManager = tokenManager,
        _observabilityService = observabilityService;
 
-  Future<http.Response> get(String endpoint) async {
+  Future<Map<String, dynamic>> get(String endpoint, {Map<String, String>? queryParams}) async {
     final span = _observabilityService.startChild(
       'http.get',
       description: endpoint,
     );
+    final uri = Uri.parse('$baseUrl$endpoint').replace(queryParameters: queryParams);
+
     try {
       final headers = await _getHeaders();
-      final response = await _client.get(
-        Uri.parse('$baseUrl$endpoint'),
-        headers: headers,
-      );
+      final response = await _client.get(uri, headers: headers);
+
       span?.status = SpanStatus.fromHttpStatusCode(response.statusCode);
-      return response;
-    } catch (e) {
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return json.decode(response.body) as Map<String, dynamic>;
+      } else {
+        throw ApiException(
+          'Failed to load data from $endpoint',
+          statusCode: response.statusCode,
+          uri: uri,
+        );
+      }
+    } catch (e, stackTrace) {
       span?.status = const SpanStatus.internalError();
       span?.throwable = e;
+      _observabilityService.captureException(e, stackTrace: stackTrace, endpoint: 'ApiClient.get');
       rethrow;
     } finally {
       await span?.finish();
     }
   }
 
-  Future<http.Response> post(String endpoint, dynamic body) async {
+  Future<Map<String, dynamic>> post(String endpoint, dynamic body) async {
     final span = _observabilityService.startChild(
       'http.post',
       description: endpoint,
     );
+    final uri = Uri.parse('$baseUrl$endpoint');
+
     try {
       final headers = await _getHeaders();
       final response = await _client.post(
-        Uri.parse('$baseUrl$endpoint'),
+        uri,
         body: json.encode(body),
         headers: headers,
       );
+
       span?.status = SpanStatus.fromHttpStatusCode(response.statusCode);
-      return response;
-    } catch (e) {
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return json.decode(response.body) as Map<String, dynamic>;
+      } else {
+        throw ApiException(
+          'Failed to post data to $endpoint',
+          statusCode: response.statusCode,
+          uri: uri,
+        );
+      }
+    } catch (e, stackTrace) {
       span?.status = const SpanStatus.internalError();
       span?.throwable = e;
+       _observabilityService.captureException(e, stackTrace: stackTrace, endpoint: 'ApiClient.post');
       rethrow;
     } finally {
       await span?.finish();

@@ -10,7 +10,7 @@ import 'package:battery_plus/battery_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-// import 'package:device_info_plus/device_info_plus.dart';
+//import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../security/encryption_service.dart';
@@ -18,7 +18,7 @@ import '../security/token_manager.dart';
 import '../services/api_client.dart';
 import '../queue/queue_manager.dart';
 import '../sync/sync_engine.dart';
-import '../db/database_adapter.dart';
+//import '../db/database_adapter.dart';
 import '../db/database_adapter_impl.dart';
 import '../observability/observability_service.dart';
 import 'background_sync_config.dart';
@@ -34,7 +34,7 @@ void callbackDispatcher() {
 
       // 1. Inicializar serviços essenciais
       await observability.initSentry(dsn: inputData?['sentry_dsn']);
-      final secureStorage = const FlutterSecureStorage();
+      const secureStorage = FlutterSecureStorage();
       final encryptionService = EncryptionService(secureStorage);
       await encryptionService.initialize();
 
@@ -237,7 +237,7 @@ class BackgroundSync {
       frequency: _config.syncInterval,
       constraints: constraints,
       initialDelay: _calculateInitialDelay(),
-      existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
+      existingWorkPolicy: ExistingWorkPolicy.replace,
       backoffPolicy: BackoffPolicy.exponential,
       backoffPolicyDelay: const Duration(minutes: 5),
       inputData: {
@@ -521,7 +521,7 @@ class BackgroundSync {
     // 2. Verificar conectividade
     final connectivityResult = await _connectivity.checkConnectivity();
 
-    final isConnected = !connectivityResult.contains(ConnectivityResult.none);
+    final isConnected = connectivityResult != ConnectivityResult.none;
     checks['connectivity'] = isConnected;
 
     if (!isConnected) {
@@ -533,7 +533,7 @@ class BackgroundSync {
     }
 
     // 3. Verificar tipo de rede
-    final isWifi = connectivityResult.contains(ConnectivityResult.wifi);
+    final isWifi = connectivityResult == ConnectivityResult.wifi;
     final networkOk = !_config.wifiOnly || isWifi;
 
     checks['network_type'] = networkOk;
@@ -573,7 +573,8 @@ class BackgroundSync {
     }
 
     // 6. Verificar operações pendentes
-    final hasPendingOps = await _queueManager.getPendingCount() > 0;
+    final metrics = _queueManager.metrics;
+    final hasPendingOps = metrics.pendingOperations > 0;
     checks['has_pending'] = hasPendingOps;
 
     return SyncConditionsCheck(
@@ -685,11 +686,15 @@ class BackgroundSync {
 
       // Se começou a carregar, tentar sync
       if (state == BatteryState.charging && _config.syncOnCharging) {
-        syncNow(priority: SyncPriority.low).catchError((e) {
-          if (kDebugMode) {
-            debugPrint('⚠️  Opportunistic sync failed: $e');
-          }
-        });
+        try {
+  syncNow(priority: SyncPriority.low);
+} catch (e, stackTrace) {
+  if (kDebugMode) {
+    debugPrint('⚠️  Opportunistic sync failed: $e');
+    debugPrint(stackTrace.toString());
+  }
+}
+
       }
     });
 
@@ -702,13 +707,16 @@ class BackgroundSync {
       }
 
       // Se conectou ao Wi-Fi, tentar sync
-      if (result.contains(ConnectivityResult.wifi) &&
-          _config.syncOnWifiConnect) {
-        syncNow(priority: SyncPriority.low).catchError((e) {
-          if (kDebugMode) {
-            debugPrint('⚠️  Opportunistic sync failed: $e');
-          }
-        });
+      if (result == ConnectivityResult.wifi && _config.syncOnWifiConnect) {
+        try {
+  syncNow(priority: SyncPriority.low);
+} catch (e, stackTrace) {
+  if (kDebugMode) {
+    debugPrint('⚠️  Opportunistic sync failed: $e');
+    debugPrint(stackTrace.toString());
+  }
+}
+
       }
     });
   }
