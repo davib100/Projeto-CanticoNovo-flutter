@@ -1,5 +1,7 @@
 // core/sync/sync_state.dart
 
+import '../../shared/models/sync_models.dart';
+
 /// Estados possíveis do Sync Engine
 abstract class SyncState {
   const SyncState();

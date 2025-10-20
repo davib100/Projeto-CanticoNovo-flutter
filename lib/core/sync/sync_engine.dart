@@ -1,18 +1,20 @@
+
 // core/sync/sync_engine.dart
 import 'dart:async';
 import 'dart:convert';
-import 'dart:isolate';
-import 'package:flutter/foundation.dart';
-import 'package:crypto/crypto.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
+import 'package:sentry_flutter/sentry_flutter.dart' show SpanStatus;
 import '../db/database_adapter.dart';
-import '../services/api_client.dart';
 import '../observability/observability_service.dart';
 import '../queue/queued_operation.dart';
-import 'sync_state.dart';
+import '../services/api_client.dart';
 import 'conflict_resolver.dart';
+import '../../shared/models/sync_models.dart';
 import 'sync_operation.dart';
+import 'sync_state.dart';
 
 /// Motor de sincronização offline-first com suporte a:
 /// - Sincronização incremental (delta sync)
@@ -31,6 +33,8 @@ class SyncEngine {
   // Gerenciamento de estado
   final _syncStateController = StreamController<SyncState>.broadcast();
   SyncState _currentState = SyncState.idle();
+  StreamSubscription<ConnectivityResult>? _connectivitySubscription;
+  bool _isConnected = false;
 
   // Resolvedores de conflito
   final Map<String, ConflictResolver> _conflictResolvers = {};
@@ -48,10 +52,6 @@ class SyncEngine {
   // Métricas
   final _syncMetrics = SyncMetrics();
 
-  // Isolate para operações pesadas
-  Isolate? _syncIsolate;
-  SendPort? _syncIsolateSendPort;
-
   bool get isHealthy => _isConnected;
 
   SyncEngine({
@@ -60,11 +60,11 @@ class SyncEngine {
     required ObservabilityService observability,
     Connectivity? connectivity,
     SyncConfiguration? config,
-  }) : _db = db,
-       _apiClient = apiClient,
-       _observability = observability,
-       _connectivity = connectivity ?? Connectivity(),
-       _config = config ?? SyncConfiguration.defaults();
+  })  : _db = db,
+        _apiClient = apiClient,
+        _observability = observability,
+        _connectivity = connectivity ?? Connectivity(),
+        _config = config ?? SyncConfiguration.defaults();
 
   /// Stream de estados de sincronização
   Stream<SyncState> get stateStream => _syncStateController.stream;
@@ -87,14 +87,15 @@ class SyncEngine {
       final lastSync = await _loadLastSyncTime();
       _syncMetrics.lastSyncTime = lastSync;
 
+      // Iniciar monitoramento de conectividade
+      _connectivitySubscription =
+          _connectivity.onConnectivityChanged.listen(_updateConnectivityStatus);
+      final initialConnectivity = await _connectivity.checkConnectivity();
+      _updateConnectivityStatus(initialConnectivity);
+
       // Configurar sync periódico se habilitado
       if (_config.enablePeriodicSync) {
         _startPeriodicSync();
-      }
-
-      // Inicializar isolate para operações pesadas
-      if (_config.useIsolate) {
-        await _initializeSyncIsolate();
       }
 
       _updateState(SyncState.idle());
@@ -103,6 +104,7 @@ class SyncEngine {
         print('✅ SyncEngine initialized');
         print('   Last Sync: ${lastSync ?? "Never"}');
         print('   Periodic Sync: ${_config.enablePeriodicSync}');
+        print('   Initial Connectivity: $_isConnected');
       }
     } catch (e, stackTrace) {
       _observability.captureException(
@@ -111,6 +113,13 @@ class SyncEngine {
         endpoint: 'sync_engine.initialize',
       );
       rethrow;
+    }
+  }
+
+  void _updateConnectivityStatus(ConnectivityResult result) {
+    _isConnected = result != ConnectivityResult.none;
+    if (kDebugMode) {
+      print('ℹ️ Connectivity status updated: $_isConnected');
     }
   }
 
@@ -126,8 +135,7 @@ class SyncEngine {
     }
 
     // Verificar conectividade
-    final hasConnection = await _checkConnectivity();
-    if (!hasConnection && !force) {
+    if (!_isConnected && !force) {
       throw NoConnectivityException('No network connectivity');
     }
 
@@ -611,23 +619,15 @@ class SyncEngine {
     return null;
   }
 
-  /// Verifica conectividade
-  Future<bool> _checkConnectivity() async {
-    try {
-      final result = await _connectivity.checkConnectivity();
-      return result != ConnectivityResult.none;
-    } catch (e) {
-      return false;
-    }
-  }
-
   /// Inicia sincronização periódica
   void _startPeriodicSync() {
     _periodicSyncTimer?.cancel();
 
     _periodicSyncTimer = Timer.periodic(_config.syncInterval, (_) async {
       try {
-        await sync();
+        if (_isConnected) {
+          await sync();
+        }
       } catch (e) {
         if (kDebugMode) {
           print('⚠️  Periodic sync failed: $e');
@@ -690,14 +690,9 @@ class SyncEngine {
     });
   }
 
-  /// Inicializa isolate para operações pesadas
-  Future<void> _initializeSyncIsolate() async {
-    // Implementação de isolate para processamento paralelo
-    // seria adicionada aqui se necessário
-  }
-
   /// Atualiza estado e notifica listeners
   void _updateState(SyncState newState) {
+    if (_currentState == newState) return;
     _currentState = newState;
     _syncStateController.add(newState);
   }
@@ -799,8 +794,8 @@ class SyncEngine {
   /// Libera recursos
   Future<void> dispose() async {
     _periodicSyncTimer?.cancel();
+    await _connectivitySubscription?.cancel();
     await _syncStateController.close();
-    _syncIsolate?.kill();
 
     if (kDebugMode) {
       print('🔒 SyncEngine disposed');
@@ -820,7 +815,6 @@ class SyncConfiguration {
   final int maxRetries;
   final int maxOperationsPerSync;
   final bool compressionEnabled;
-  final bool useIsolate;
   final Duration syncRetentionPeriod;
 
   const SyncConfiguration({
@@ -830,7 +824,6 @@ class SyncConfiguration {
     required this.maxRetries,
     required this.maxOperationsPerSync,
     required this.compressionEnabled,
-    required this.useIsolate,
     required this.syncRetentionPeriod,
   });
 
@@ -842,31 +835,9 @@ class SyncConfiguration {
       maxRetries: 3,
       maxOperationsPerSync: 1000,
       compressionEnabled: true,
-      useIsolate: false,
       syncRetentionPeriod: Duration(days: 30),
     );
   }
-}
-
-/// Resultado de sincronização
-class SyncResult {
-  final int pushedCount;
-  final int pulledCount;
-  final int conflictsResolved;
-  final List<SyncError> errors;
-  final Duration duration;
-
-  SyncResult({
-    required this.pushedCount,
-    required this.pulledCount,
-    required this.conflictsResolved,
-    required this.errors,
-    required this.duration,
-  });
-
-  bool get hasErrors => errors.isNotEmpty;
-  bool get isSuccessful => errors.isEmpty;
-  int get totalOperations => pushedCount + pulledCount;
 }
 
 /// Métricas de sincronização
@@ -908,15 +879,6 @@ class SyncMetrics {
   Duration get averageSyncDuration => successfulSyncs > 0
       ? Duration(milliseconds: totalSyncTime.inMilliseconds ~/ successfulSyncs)
       : Duration.zero;
-}
-
-/// Erro de sincronização
-class SyncError {
-  final String message;
-  final DateTime timestamp;
-  final StackTrace? stackTrace;
-
-  SyncError({required this.message, required this.timestamp, this.stackTrace});
 }
 
 /// Prioridade de sincronização
