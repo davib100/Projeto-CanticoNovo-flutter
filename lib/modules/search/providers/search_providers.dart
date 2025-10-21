@@ -1,4 +1,3 @@
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:myapp/shared/models/music_model.dart';
@@ -6,16 +5,17 @@ import '../repositories/search_repository.dart';
 import '../services/search_service.dart';
 import '../models/search_state.dart';
 
-
 final searchRepositoryProvider = Provider<SearchRepository>((ref) {
-  return SearchRepository(); 
+  return SearchRepository();
 });
 
 final searchServiceProvider = Provider<SearchService>((ref) {
   return SearchService(ref.read(searchRepositoryProvider));
 });
 
-final searchProvider = StateNotifierProvider<SearchNotifier, SearchState>((ref) {
+final searchProvider = StateNotifierProvider<SearchNotifier, SearchState>((
+  ref,
+) {
   return SearchNotifier(
     ref.read(searchRepositoryProvider),
     ref.read(searchServiceProvider),
@@ -37,8 +37,8 @@ class SearchNotifier extends StateNotifier<SearchState> {
         .debounceTime(const Duration(milliseconds: 500))
         .distinct()
         .listen((query) {
-      _performSearch(query);
-    });
+          _performSearch(query);
+        });
   }
 
   Future<void> _loadSearchHistory() async {
@@ -64,11 +64,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
 
   Future<void> _performSearch(String query) async {
     if (query.isEmpty) {
-      state = state.copyWith(
-        debouncedQuery: '',
-        results: [],
-        isLoading: false,
-      );
+      state = state.copyWith(debouncedQuery: '', results: [], isLoading: false);
       return;
     }
 
@@ -82,10 +78,7 @@ class SearchNotifier extends StateNotifier<SearchState> {
     try {
       final result = await _service.searchMusic(query);
 
-       state = state.copyWith(
-        results: result,
-        isLoading: false,
-      );
+      state = state.copyWith(results: result, isLoading: false);
     } catch (e) {
       state = state.copyWith(
         isLoading: false,

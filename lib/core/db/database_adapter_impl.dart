@@ -59,7 +59,8 @@ class AppDatabase extends _$AppDatabase {
   Future<void> updateOperation(QueuedOperation operation) {
     return (update(
       operations,
-    )..where((tbl) => tbl.id.equals(operation.id))).write(
+    )..where((tbl) => tbl.id.equals(operation.id)))
+        .write(
       OperationsCompanion(
         attempts: Value(operation.attempts),
         status: Value(operation.status),
@@ -68,15 +69,14 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<List<QueuedOperation>> getPendingOperations() async {
-    final result =
-        await (select(operations)
-              ..where(
-                (tbl) =>
-                    tbl.status.isNull() |
-                    tbl.status.equals('paused') |
-                    tbl.status.equals('running'),
-              ))
-            .get();
+    final result = await (select(operations)
+          ..where(
+            (tbl) =>
+                tbl.status.isNull() |
+                tbl.status.equals('paused') |
+                tbl.status.equals('running'),
+          ))
+        .get();
 
     return result
         .map(
@@ -117,15 +117,38 @@ LazyDatabase _openConnection() {
 
 class DatabaseAdapterImpl extends DatabaseAdapter {
   late AppDatabase _db;
+  bool _isInitialized = false;
+
+  @override
+  bool get isHealthy => _isInitialized;
 
   @override
   Future<void> init() async {
     _db = AppDatabase();
+    await _db.executor.ensureOpen(_db);
+    _isInitialized = true;
   }
 
   @override
   Future<void> close() async {
     await _db.close();
+    _isInitialized = false;
+  }
+
+  @override
+  Future<String> export() async {
+    final dbFolder = await getApplicationDocumentsDirectory();
+    return p.join(dbFolder.path, 'db.sqlite');
+  }
+
+  @override
+  Future<void> restore(String path) async {
+    await close();
+    final dbFolder = await getApplicationDocumentsDirectory();
+    final file = File(p.join(dbFolder.path, 'db.sqlite'));
+    final backup = File(path);
+    await backup.copy(file.path);
+    await init();
   }
 
   @override
@@ -154,95 +177,59 @@ class DatabaseAdapterImpl extends DatabaseAdapter {
   }
 
   @override
-  Future<void> executeMigrations(Map<int, String> migrations) async {
-    // Drift handles migrations automatically
-  }
-
-  @override
-  Future<T?> getCached<T>(String key) async {
-    // Implement caching logic here if needed
-    return null;
-  }
-
-  @override
-  Future<void> setCached<T>(String key, T value, {Duration? ttl}) async {
-    // Implement caching logic here if needed
-  }
-
-  @override
-  Future<void> invalidateCache(String key) async {
-    // Implement caching logic here if needed
-  }
-
-  @override
-  Future<File> export() async {
-    final dbFolder = await getApplicationDocumentsDirectory();
-    return File(p.join(dbFolder.path, 'db.sqlite'));
-  }
-
-  @override
-  Future<void> restore(List<int> data) async {
-    await _db.close();
-    final dbFolder = await getApplicationDocumentsDirectory();
-    final file = File(p.join(dbFolder.path, 'db.sqlite'));
-    await file.writeAsBytes(data);
-    _db = AppDatabase();
-  }
-
-  @override
   Future<void> transaction(Future<void> Function(dynamic txn) action) async {
     return _db.transaction(() => action(_db));
   }
 
   @override
-  Future<void> insertGeneric(String table, Map<String, dynamic> data, {dynamic transaction}) async {
-    final db = transaction ?? _db;
+  Future<void> insertGeneric(String table, Map<String, dynamic> data,
+      {dynamic transaction}) async {
+    final db = transaction?.executor ?? _db.executor;
     final columns = data.keys.join(', ');
     final placeholders = List.filled(data.length, '?').join(', ');
-    final values = data.values.toList();
-    final statement = 'INSERT INTO $table ($columns) VALUES ($placeholders)';
-    await (db as AppDatabase).executor.runInsert(statement, values);
-  }
-
- @override
-  Future<void> updateGeneric(String table, Map<String, dynamic> data, String where, List<dynamic> whereArgs, {dynamic transaction}) async {
-    final db = transaction ?? _db;
-    String setClause = data.keys.map((key) => '$key = ?').join(', ');
-    final allArgs = [...data.values, ...whereArgs];
-    final statement = 'UPDATE $table SET $setClause WHERE $where';
-    await (db as AppDatabase).executor.runUpdate(statement, allArgs);
+    final sql = 'INSERT INTO $table ($columns) VALUES ($placeholders)';
+    await db.runInsert(sql, data.values.toList());
   }
 
   @override
-  Future<void> deleteGeneric(String table, String where, List<dynamic> whereArgs, {dynamic transaction}) async {
-    final db = transaction ?? _db;
-    final statement = 'DELETE FROM $table WHERE $where';
-    await (db as AppDatabase).executor.runDelete(statement, whereArgs);
+  Future<void> updateGeneric(String table, Map<String, dynamic> data,
+      String where, List<dynamic> whereArgs,
+      {dynamic transaction}) async {
+    final db = transaction?.executor ?? _db.executor;
+    final setClause = data.keys.map((key) => '$key = ?').join(', ');
+    final sql = 'UPDATE $table SET $setClause WHERE $where';
+    final args = [...data.values, ...whereArgs];
+    await db.runUpdate(sql, args);
   }
 
- @override
-  Future<List<Map<String, dynamic>>> queryGeneric(String table, {List<String>? columns, String? where, List? whereArgs, String? orderBy, int? limit}) async {
-    final db = _db;
-    final selectColumns = (columns == null || columns.isEmpty) ? '*' : columns.join(', ');
-    var sql = 'SELECT $selectColumns FROM $table';
+  @override
+  Future<void> deleteGeneric(
+      String table, String where, List<dynamic> whereArgs,
+      {dynamic transaction}) async {
+    final db = transaction?.executor ?? _db.executor;
+    final sql = 'DELETE FROM $table WHERE $where';
+    await db.runDelete(sql, whereArgs);
+  }
 
-    if (where != null && where.isNotEmpty) {
+  @override
+  Future<List<Map<String, dynamic>>> queryGeneric(String table,
+      {List<String>? columns,
+      String? where,
+      List? whereArgs,
+      String? orderBy,
+      int? limit}) async {
+    final columnsClause = columns?.join(', ') ?? '*';
+    var sql = 'SELECT $columnsClause FROM $table';
+    if (where != null) {
       sql += ' WHERE $where';
     }
-    if (orderBy != null && orderBy.isNotEmpty) {
+    if (orderBy != null) {
       sql += ' ORDER BY $orderBy';
     }
     if (limit != null) {
       sql += ' LIMIT $limit';
     }
-
-    final result = await db.executor.runSelect(sql, whereArgs?.cast<Object?>() ?? []);
-    return result.map((row) => Map<String, dynamic>.from(row)).toList();
-  }
-
-  @override
-  Future<void> customStatement(String statement, {List<dynamic>? args, dynamic transaction}) async {
-    final db = transaction ?? _db;
-    await (db as AppDatabase).executor.runCustom(statement, args ?? []);
+    final result = await _db.executor.runSelect(sql, whereArgs?.cast<Object?>() ?? []);
+    return result;
   }
 }

@@ -37,8 +37,7 @@ class SearchHighlighter extends StatelessWidget {
       spans.add(
         TextSpan(
           text: text.substring(index, index + query.length),
-          style:
-              highlightStyle ??
+          style: highlightStyle ??
               const TextStyle(
                 fontWeight: FontWeight.bold,
                 backgroundColor: Color(0xFFFEF3C7),

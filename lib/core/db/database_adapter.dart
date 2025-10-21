@@ -1,5 +1,5 @@
+// core/db/database_adapter.dart
 import 'dart:async';
-import 'dart:io';
 
 import '../queue/queued_operation.dart';
 
@@ -12,6 +12,21 @@ import '../queue/queued_operation.dart';
 /// - Backup e restauração do banco de dados.
 /// - Execução de transações atômicas.
 abstract class DatabaseAdapter {
+  /// Indica se o banco de dados está saudável e conectado.
+  bool get isHealthy;
+
+  /// Inicializa o banco de dados.
+  Future<void> init();
+
+  /// Fecha a conexão com o banco de dados.
+  Future<void> close();
+
+  /// Exporta o banco de dados e retorna o caminho para o arquivo exportado.
+  Future<String> export();
+
+  /// Restaura o banco de dados a partir de um arquivo.
+  Future<void> restore(String path);
+
   /// Salva uma nova operação na fila de sincronização.
   Future<void> saveOperation(QueuedOperation operation);
 
@@ -27,41 +42,40 @@ abstract class DatabaseAdapter {
   /// Limpa todas as operações da fila.
   Future<void> clearAllOperations();
 
-  /// Inicializa o banco de dados, aplicando migrações se necessário.
-  Future<void> init();
+  /// Executa uma query genérica.
+  Future<List<Map<String, dynamic>>> queryGeneric(
+    String table, {
+    List<String>? columns,
+    String? where,
+    List<dynamic>? whereArgs,
+    String? orderBy,
+    int? limit,
+  });
 
-  /// Fecha a conexão com o banco de dados.
-  Future<void> close();
+  /// Insere um registro genérico.
+  Future<void> insertGeneric(
+    String table,
+    Map<String, dynamic> data, {
+    dynamic transaction,
+  });
 
-  /// Executa uma lista de migrações de schema em ordem.
-  Future<void> executeMigrations(Map<int, String> migrations);
+  /// Atualiza um registro genérico.
+  Future<void> updateGeneric(
+    String table,
+    Map<String, dynamic> data,
+    String where,
+    List<dynamic> whereArgs, {
+    dynamic transaction,
+  });
 
-  /// Busca um valor do cache pelo sua chave.
-  Future<T?> getCached<T>(String key);
+  /// Deleta um registro genérico.
+  Future<void> deleteGeneric(
+    String table,
+    String where,
+    List<dynamic> whereArgs, {
+    dynamic transaction,
+  });
 
-  /// Adiciona ou atualiza um valor no cache com um TTL opcional.
-  Future<void> setCached<T>(String key, T value, {Duration? ttl});
-
-  /// Remove um valor do cache pela sua chave.
-  Future<void> invalidateCache(String key);
-
-  /// Exporta o banco de dados para um arquivo.
-  Future<File> export();
-
-  /// Restaura o banco de dados a partir de um backup.
-  Future<void> restore(List<int> data);
-
-  /// Executa um bloco de código dentro de uma transação atômica.
-  ///
-  /// Se o bloco de código lançar uma exceção, a transação será revertida (rollback).
-  /// Caso contrário, as alterações serão salvas (commit).
-  /// O parâmetro [txn] é um objeto de transação específico da implementação do banco.
+  /// Executa uma transação atômica.
   Future<void> transaction(Future<void> Function(dynamic txn) action);
-
-  // Métodos genéricos para manipulação de dados
-  Future<void> insertGeneric(String table, Map<String, dynamic> data, {dynamic transaction});
-  Future<void> updateGeneric(String table, Map<String, dynamic> data, String where, List<dynamic> whereArgs, {dynamic transaction});
-  Future<void> deleteGeneric(String table, String where, List<dynamic> whereArgs, {dynamic transaction});
-  Future<List<Map<String, dynamic>>> queryGeneric(String table, {List<String>? columns, String? where, List<dynamic>? whereArgs, String? orderBy, int? limit});
-  Future<void> customStatement(String statement, {dynamic transaction});
 }

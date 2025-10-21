@@ -50,7 +50,7 @@ class EncryptionService {
   final _metrics = EncryptionMetrics();
 
   EncryptionService(this._secureStorage, {EncryptionConfig? config})
-    : _config = config ?? EncryptionConfig.defaults();
+      : _config = config ?? EncryptionConfig.defaults();
 
   /// Métricas de criptografia
   EncryptionMetrics get metrics => _metrics;
@@ -216,9 +216,9 @@ class EncryptionService {
     final encrypted = EncryptedData.fromBase64(encryptedBase64);
     final aad = associatedData != null ? utf8.encode(associatedData) : null;
 
-    final plainBytes = await decrypt(encrypted, associatedData: aad);
+    final decrypted = await decrypt(encrypted, associatedData: aad);
 
-    return utf8.decode(plainBytes);
+    return utf8.decode(decrypted);
   }
 
   /// Criptografa arquivo (streaming para grandes arquivos)
@@ -228,7 +228,6 @@ class EncryptionService {
     void Function(double progress)? onProgress,
   }) async {
     try {
-      // Para arquivos pequenos (< 10MB), carregar tudo de uma vez
       final file = File(inputPath);
       final fileSize = await file.length();
 
@@ -238,7 +237,6 @@ class EncryptionService {
 
         await File(outputPath).writeAsBytes(encrypted.toBytes());
       } else {
-        // Para arquivos grandes, usar streaming
         await _encryptFileStreaming(
           inputPath: inputPath,
           outputPath: outputPath,
@@ -534,9 +532,26 @@ class EncryptionService {
     required String outputPath,
     void Function(double progress)? onProgress,
   }) async {
-    // Implementação similar ao _encryptFileStreaming
-    // mas descriptografando cada chunk
-    throw UnimplementedError('Streaming decryption not yet implemented');
+    final inputFile = File(inputPath);
+    final outputFile = File(outputPath);
+    final fileSize = await inputFile.length();
+
+    final inputStream = inputFile.openRead();
+    final outputSink = outputFile.openWrite();
+
+    int bytesProcessed = 0;
+
+    await for (final chunk in inputStream) {
+      final encrypted = EncryptedData.fromBytes(Uint8List.fromList(chunk));
+      final plainData = await decrypt(encrypted);
+      outputSink.add(plainData);
+
+      bytesProcessed += chunk.length;
+      onProgress?.call(bytesProcessed / fileSize);
+    }
+
+    await outputSink.flush();
+    await outputSink.close();
   }
 
   /// Limpa cache de chaves da memória

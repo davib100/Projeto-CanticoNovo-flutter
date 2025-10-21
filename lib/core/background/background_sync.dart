@@ -69,10 +69,12 @@ void callbackDispatcher() {
 
       // 5. Inicializar o restante da infraestrutura de sincronização
       final db = DatabaseAdapterImpl();
+      await db.init(); // <-- CORREÇÃO: Inicializar o banco de dados
       final syncEngine = SyncEngine(
         db: db,
         apiClient: apiClient,
-        observability: observability,
+        observabilityService:
+            observability, // <-- CORREÇÃO: Parâmetro correto
       );
 
       final queueManager = QueueManager(db: db, syncEngine: syncEngine);
@@ -137,8 +139,8 @@ class BackgroundSync {
   BackgroundSync({
     required QueueManager queueManager,
     required SyncEngine syncEngine,
-  }) : _queueManager = queueManager,
-       _syncEngine = syncEngine;
+  })  : _queueManager = queueManager,
+        _syncEngine = syncEngine;
 
   /// Stream de estados
   Stream<BackgroundSyncState> get stateStream => _stateController.stream;
@@ -503,8 +505,7 @@ class BackgroundSync {
     final batteryLevel = await _battery.batteryLevel;
     final batteryState = await _battery.batteryState;
 
-    final batteryOk =
-        constraints?.requireBatteryNotLow == false ||
+    final batteryOk = constraints?.requireBatteryNotLow == false ||
         batteryLevel > _config.minimumBatteryLevel ||
         batteryState == BatteryState.charging;
 
@@ -687,14 +688,13 @@ class BackgroundSync {
       // Se começou a carregar, tentar sync
       if (state == BatteryState.charging && _config.syncOnCharging) {
         try {
-  syncNow(priority: SyncPriority.low);
-} catch (e, stackTrace) {
-  if (kDebugMode) {
-    debugPrint('⚠️  Opportunistic sync failed: $e');
-    debugPrint(stackTrace.toString());
-  }
-}
-
+          syncNow(priority: SyncPriority.low);
+        } catch (e, stackTrace) {
+          if (kDebugMode) {
+            debugPrint('⚠️  Opportunistic sync failed: $e');
+            debugPrint(stackTrace.toString());
+          }
+        }
       }
     });
 
@@ -709,14 +709,13 @@ class BackgroundSync {
       // Se conectou ao Wi-Fi, tentar sync
       if (result == ConnectivityResult.wifi && _config.syncOnWifiConnect) {
         try {
-  syncNow(priority: SyncPriority.low);
-} catch (e, stackTrace) {
-  if (kDebugMode) {
-    debugPrint('⚠️  Opportunistic sync failed: $e');
-    debugPrint(stackTrace.toString());
-  }
-}
-
+          syncNow(priority: SyncPriority.low);
+        } catch (e, stackTrace) {
+          if (kDebugMode) {
+            debugPrint('⚠️  Opportunistic sync failed: $e');
+            debugPrint(stackTrace.toString());
+          }
+        }
       }
     });
   }

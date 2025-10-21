@@ -1,41 +1,28 @@
-// /modules/lyrics/lyrics_module.dart
-
 import 'package:myapp/core/module_registry.dart';
-import 'package:myapp/core/observability/logger.dart';
 
 @AppModule()
-class LyricsModule implements AppModuleInterface {
+class LyricsModule extends AppModule {
   @override
   String get name => 'LyricsModule';
 
   @override
-  ModulePersistenceType get persistenceType => ModulePersistenceType.queue;
+  String get mainAction => 'Visualizar Letras';
 
   @override
-  Future<void> initialize(AppOrchestrator orchestrator) async {
-    final logger = orchestrator.logger;
+  bool get useQueue => true;
 
-    logger.info('🎵 Inicializando LyricsModule...');
+  LyricsModule({
+    ModulePriority priority = ModulePriority.normal,
+    bool lazy = false,
+  }) : super(priority: priority, lazy: lazy);
 
-    // Registrar rotas
-    orchestrator.registerRoute('/lyrics/:id', (context, params) {
-      return LyricsScreen(musicId: params['id']!);
-    });
-
-    // Registrar migração de tabela Music (se necessário)
-    await orchestrator.migrationManager.registerMigration(
-      version: 1,
-      migration: () async {
-        logger.info('Aplicando migração da tabela Music');
-        // Migração já definida no schema Drift
-      },
-    );
-
-    logger.success('✅ LyricsModule inicializado com sucesso');
+  @override
+  Future<void> initialize(DatabaseAdapter db, QueueManager queue) async {
+    // ... (lógica de inicialização)
   }
 
   @override
   Future<void> dispose() async {
-    // Cleanup se necessário
+    // ... (lógica de dispose)
   }
 }

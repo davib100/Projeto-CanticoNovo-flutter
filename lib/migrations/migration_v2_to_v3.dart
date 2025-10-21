@@ -3,7 +3,7 @@ import 'package:drift/drift.dart';
 import '../core/db/migration_manager.dart';
 
 /// Migration v2 → v3: Adiciona auditoria e metadata avançada
-/// 
+///
 /// Mudanças:
 /// - Cria tabela audit_log para rastreamento de mudanças
 /// - Cria tabela metadata para configurações globais
@@ -14,13 +14,13 @@ import '../core/db/migration_manager.dart';
 class MigrationV2ToV3 implements Migration {
   @override
   String get description => 'Add audit log and advanced metadata support';
-  
+
   @override
   Future<void> migrate(Migrator migrator) async {
     // ══════════════════════════════════════════
     // CRIAR TABELA AUDIT_LOG
     // ══════════════════════════════════════════
-    
+
     await migrator.database.customStatement('''
       CREATE TABLE audit_log (
         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -33,20 +33,18 @@ class MigrationV2ToV3 implements Migration {
         timestamp INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
       )
     ''');
-    
+
     // Índices para audit_log
     await migrator.database.customStatement(
-      'CREATE INDEX idx_audit_table_record_v3 ON audit_log(table_name, record_id)'
-    );
-    
+        'CREATE INDEX idx_audit_table_record_v3 ON audit_log(table_name, record_id)');
+
     await migrator.database.customStatement(
-      'CREATE INDEX idx_audit_timestamp_v3 ON audit_log(timestamp DESC)'
-    );
-    
+        'CREATE INDEX idx_audit_timestamp_v3 ON audit_log(timestamp DESC)');
+
     // ══════════════════════════════════════════
     // CRIAR TABELA METADATA
     // ══════════════════════════════════════════
-    
+
     await migrator.database.customStatement('''
       CREATE TABLE metadata (
         key TEXT NOT NULL PRIMARY KEY,
@@ -54,40 +52,35 @@ class MigrationV2ToV3 implements Migration {
         updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
       )
     ''');
-    
+
     // ══════════════════════════════════════════
     // ATUALIZAR SYNC_LOG
     // ══════════════════════════════════════════
-    
+
     await migrator.database.customStatement(
-      'ALTER TABLE sync_log ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0'
-    );
-    
+        'ALTER TABLE sync_log ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0');
+
     // ══════════════════════════════════════════
     // ATUALIZAR QUEUE_OPERATIONS
     // ══════════════════════════════════════════
-    
+
     await migrator.database.customStatement(
-      'ALTER TABLE queue_operations ADD COLUMN priority INTEGER NOT NULL DEFAULT 50'
-    );
-    
+        'ALTER TABLE queue_operations ADD COLUMN priority INTEGER NOT NULL DEFAULT 50');
+
     await migrator.database.customStatement(
-      'ALTER TABLE queue_operations ADD COLUMN processed_at INTEGER'
-    );
-    
+        'ALTER TABLE queue_operations ADD COLUMN processed_at INTEGER');
+
     // Recriar índice com prioridade
+    await migrator.database
+        .customStatement('DROP INDEX IF EXISTS idx_queue_status');
+
     await migrator.database.customStatement(
-      'DROP INDEX IF EXISTS idx_queue_status'
-    );
-    
-    await migrator.database.customStatement(
-      'CREATE INDEX idx_queue_status_priority_v3 ON queue_operations(status, priority DESC, created_at ASC)'
-    );
-    
+        'CREATE INDEX idx_queue_status_priority_v3 ON queue_operations(status, priority DESC, created_at ASC)');
+
     // ══════════════════════════════════════════
     // CRIAR TRIGGERS DE AUDITORIA
     // ══════════════════════════════════════════
-    
+
     // Trigger para INSERT em songs
     await migrator.database.customStatement('''
       CREATE TRIGGER audit_songs_insert_v3
@@ -108,7 +101,7 @@ class MigrationV2ToV3 implements Migration {
         );
       END
     ''');
-    
+
     // Trigger para UPDATE em songs
     await migrator.database.customStatement('''
       CREATE TRIGGER audit_songs_update_v3
@@ -126,7 +119,7 @@ class MigrationV2ToV3 implements Migration {
         );
       END
     ''');
-    
+
     // Trigger para soft DELETE em songs
     await migrator.database.customStatement('''
       CREATE TRIGGER audit_songs_delete_v3
@@ -138,7 +131,7 @@ class MigrationV2ToV3 implements Migration {
         VALUES ('songs', OLD.id, 'DELETE');
       END
     ''');
-    
+
     // Trigger para incrementar version automaticamente
     await migrator.database.customStatement('''
       CREATE TRIGGER increment_song_version_v3
@@ -149,7 +142,7 @@ class MigrationV2ToV3 implements Migration {
         UPDATE songs SET version = version + 1 WHERE id = NEW.id;
       END
     ''');
-    
+
     // Trigger para atualizar updated_at automaticamente
     await migrator.database.customStatement('''
       CREATE TRIGGER update_songs_timestamp_v3
@@ -160,11 +153,11 @@ class MigrationV2ToV3 implements Migration {
         UPDATE songs SET updated_at = strftime('%s', 'now') WHERE id = NEW.id;
       END
     ''');
-    
+
     // ══════════════════════════════════════════
     // CRIAR TABELA MIGRATION_HISTORY (se não existe)
     // ══════════════════════════════════════════
-    
+
     await migrator.database.customStatement('''
       CREATE TABLE IF NOT EXISTS migration_history (
         version INTEGER NOT NULL PRIMARY KEY,
@@ -172,11 +165,11 @@ class MigrationV2ToV3 implements Migration {
         applied_at TEXT NOT NULL
       )
     ''');
-    
+
     // ══════════════════════════════════════════
     // REGISTRAR MIGRAÇÃO
     // ══════════════════════════════════════════
-    
+
     await migrator.database.customInsert(
       'INSERT INTO migration_history (version, description, applied_at) VALUES (?, ?, ?)',
       variables: [

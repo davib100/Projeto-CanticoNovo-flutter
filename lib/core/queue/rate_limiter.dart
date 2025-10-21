@@ -18,8 +18,8 @@ class RateLimiter {
     required this.maxTokens,
     required this.refillRate,
     this.allowBurst = true,
-  }) : _currentTokens = maxTokens,
-       _lastRefillTime = DateTime.now();
+  })  : _currentTokens = maxTokens,
+        _lastRefillTime = DateTime.now();
 
   /// Número de tokens disponíveis
   int get availableTokens {
@@ -108,8 +108,8 @@ class RateLimiter {
       availableTokens: availableTokens,
       maxTokens: maxTokens,
       requestRate: requestRate,
-      utilizationRate: ((maxTokens - availableTokens) / maxTokens * 100)
-          .toInt(),
+      utilizationRate:
+          ((maxTokens - availableTokens) / maxTokens * 100).toInt(),
     );
   }
 }

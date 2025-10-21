@@ -639,11 +639,11 @@ class NoOpSentrySpan implements ISentrySpan {
 
   @override
   SentrySpanContext get context => SentrySpanContext(
-    traceId: SentryId.empty(),
-    spanId: SpanId.empty(),
-    parentSpanId: SpanId.empty(),
-    operation: 'noop',
-  );
+        traceId: SentryId.empty(),
+        spanId: SpanId.empty(),
+        parentSpanId: SpanId.empty(),
+        operation: 'noop',
+      );
 
   @override
   noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

@@ -1,5 +1,3 @@
-// /frontend/modules/karaoke/karaoke_module.dart
-
 import 'package:flutter/material.dart';
 import 'package:myapp/core/module_registry.dart';
 import 'presentation/screens/karaoke_list_screen.dart';
@@ -10,67 +8,28 @@ import 'presentation/screens/karaoke_list_screen.dart';
       PersistenceType.direct, // Não usa QueueManager - dados temporários
   priority: 8,
 )
-class KaraokeModule extends BaseModule {
+class KaraokeModule extends AppModule {
   @override
-  String get moduleName => 'KaraokeModule';
+  String get name => 'KaraokeModule';
 
   @override
-  Future<void> initialize() async {
-    final startTime = DateTime.now();
+  String get mainAction => 'Executar Karaokê';
 
-    try {
-      // Log de inicialização
-      await logModuleAction(
-        action: 'initialize',
-        status: ModuleStatus.loading,
-        message: 'Inicializando módulo Karaokê',
-      );
+  @override
+  bool get useQueue => false;
 
-      // Registrar dependências
-      await _registerDependencies();
+  KaraokeModule({
+    ModulePriority priority = ModulePriority.normal,
+    bool lazy = false,
+  }) : super(priority: priority, lazy: lazy);
 
-      // Verificar permissões de áudio
-      await _checkAudioPermissions();
-
-      final duration = DateTime.now().difference(startTime);
-
-      await logModuleAction(
-        action: 'initialize',
-        status: ModuleStatus.success,
-        message: 'Módulo inicializado com sucesso',
-        metadata: {'duration_ms': duration.inMilliseconds},
-      );
-    } catch (e, stackTrace) {
-      await logModuleAction(
-        action: 'initialize',
-        status: ModuleStatus.error,
-        message: 'Erro ao inicializar módulo',
-        error: e.toString(),
-        stackTrace: stackTrace.toString(),
-      );
-      rethrow;
-    }
-  }
-
-  Future<void> _registerDependencies() async {
-    // Registrar providers com Riverpod
-    // Provider registration será feito no app_orchestrator
-  }
-
-  Future<void> _checkAudioPermissions() async {
-    // Verificar permissões necessárias para gravação de áudio (futuramente)
+  @override
+  Future<void> initialize(DatabaseAdapter db, QueueManager queue) async {
+    // ... (lógica de inicialização)
   }
 
   @override
-  Widget getMainScreen() {
-    return const KaraokeListScreen();
-  }
-
-  @override
-  Map<String, WidgetBuilder> getRoutes() {
-    return {
-      '/karaoke': (context) => const KaraokeListScreen(),
-      '/karaoke/player': (context) => const KaraokePlayerScreen(),
-    };
+  Future<void> dispose() async {
+    // ... (lógica de dispose)
   }
 }

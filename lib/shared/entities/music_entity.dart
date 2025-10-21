@@ -19,5 +19,6 @@ class MusicEntity with _$MusicEntity {
     DateTime? lastAccessed,
   }) = _MusicEntity;
 
-  factory MusicEntity.fromJson(Map<String, dynamic> json) => _$MusicEntityFromJson(json);
+  factory MusicEntity.fromJson(Map<String, dynamic> json) =>
+      _$MusicEntityFromJson(json);
 }

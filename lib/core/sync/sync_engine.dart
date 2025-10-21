@@ -1,4 +1,3 @@
-
 // core/sync/sync_engine.dart
 import 'dart:async';
 import 'dart:convert';
@@ -17,7 +16,6 @@ import '../../shared/models/sync_models.dart';
 import 'sync_operation.dart';
 import 'sync_state.dart';
 
-
 /// Motor de sincronização offline-first com suporte a:
 /// - Sincronização incremental (delta sync)
 /// - Resolução de conflitos com múltiplas estratégias
@@ -29,7 +27,7 @@ import 'sync_state.dart';
 class SyncEngine {
   final DatabaseAdapter _db;
   final ApiClient _apiClient;
-  final ObservabilityService _observability;
+  final ObservabilityService _observabilityService;
   final Connectivity _connectivity;
 
   // Gerenciamento de estado
@@ -59,12 +57,12 @@ class SyncEngine {
   SyncEngine({
     required DatabaseAdapter db,
     required ApiClient apiClient,
-    required ObservabilityService observability,
+    required ObservabilityService observabilityService,
     Connectivity? connectivity,
     SyncConfiguration? config,
   })  : _db = db,
         _apiClient = apiClient,
-        _observability = observability,
+        _observabilityService = observabilityService,
         _connectivity = connectivity ?? Connectivity(),
         _config = config ?? SyncConfiguration.defaults();
 
@@ -80,7 +78,8 @@ class SyncEngine {
   /// Inicializa o sync engine
   Future<void> initialize() async {
     try {
-      _observability.addBreadcrumb('Initializing SyncEngine', category: 'sync');
+      _observabilityService.addBreadcrumb('Initializing SyncEngine',
+          category: 'sync');
 
       // Registrar estratégias de conflito padrão
       _registerDefaultConflictResolvers();
@@ -109,7 +108,7 @@ class SyncEngine {
         print('   Initial Connectivity: $_isConnected');
       }
     } catch (e, stackTrace) {
-      _observability.captureException(
+      _observabilityService.captureException(
         e,
         stackTrace: stackTrace,
         endpoint: 'sync_engine.initialize',
@@ -144,7 +143,7 @@ class SyncEngine {
     _syncCompleter = Completer<void>();
     _currentCancellationToken = CancellationToken();
 
-    final transaction = _observability.startTransaction(
+    final transaction = _observabilityService.startTransaction(
       'sync.full',
       'sync',
       data: {
@@ -199,7 +198,7 @@ class SyncEngine {
 
       await transaction.finish(status: const SpanStatus.ok());
 
-      _observability.addBreadcrumb(
+      _observabilityService.addBreadcrumb(
         'Sync completed successfully',
         category: 'sync',
         data: {
@@ -230,7 +229,7 @@ class SyncEngine {
       _updateState(SyncState.error(error: error));
       _syncMetrics.syncFailed(error);
 
-      await _observability.captureException(
+      await _observabilityService.captureException(
         e,
         stackTrace: stackTrace,
         endpoint: 'sync_engine.sync',
@@ -256,7 +255,7 @@ class SyncEngine {
     required SyncPriority priority,
     required CancellationToken cancellationToken,
   }) async {
-    final span = _observability.startChild(
+    final span = _observabilityService.startChild(
       'sync.push',
       description: 'Pushing local changes to server',
     );
@@ -382,7 +381,7 @@ class SyncEngine {
     List<String>? entityTypes,
     required CancellationToken cancellationToken,
   }) async {
-    final span = _observability.startChild(
+    final span = _observabilityService.startChild(
       'sync.pull',
       description: 'Pulling server changes',
     );
@@ -756,12 +755,17 @@ class SyncEngine {
     switch (operation.operationType) {
       case 'insert':
       case 'update':
-        await _db.insertGeneric(operation.entityType, operation.data, transaction: transaction);
+        await _db.insertGeneric(operation.entityType, operation.data,
+            transaction: transaction);
         break;
       case 'delete':
-        await _db.deleteGeneric(operation.entityType, 'id = ?', [
-          operation.entityId,
-        ], transaction: transaction);
+        await _db.deleteGeneric(
+            operation.entityType,
+            'id = ?',
+            [
+              operation.entityId,
+            ],
+            transaction: transaction);
         break;
     }
   }

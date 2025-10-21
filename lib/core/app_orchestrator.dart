@@ -1,7 +1,9 @@
 // core/app_orchestrator.dart
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http/http.dart' as http;
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'package:flutter/foundation.dart';
@@ -18,6 +20,7 @@ import 'background/background_sync.dart';
 import 'services/api_client.dart';
 import 'security/auth_service.dart';
 import 'security/encryption_service.dart';
+import 'security/token_manager.dart';
 import 'observability/observability_service.dart';
 
 /// Orquestrador central da aplicação
@@ -37,6 +40,7 @@ class AppOrchestrator {
   late final AuthService _authService;
   late final EncryptionService _encryptionService;
   late final ObservabilityService _observability;
+  late final TokenManager _tokenManager;
 
   // Estado da inicialização
   bool _isInitialized = false;
@@ -53,6 +57,7 @@ class AppOrchestrator {
   AuthService get authService => _authService;
   EncryptionService get encryptionService => _encryptionService;
   ObservabilityService get observability => _observability;
+  TokenManager get tokenManager => _tokenManager;
 
   bool get isInitialized => _isInitialized;
   List<InitializationStep> get initializationSteps =>
@@ -69,16 +74,16 @@ class AppOrchestrator {
   }) async {
     if (_isInitialized) {
       if (kDebugMode) {
-        print('⚠️  AppOrchestrator already initialized');
+        developer.log('⚠️  AppOrchestrator already initialized');
       }
       return;
     }
 
     try {
       if (kDebugMode) {
-        print('🚀 ═══════════════════════════════════════');
-        print('🚀 Starting App Orchestrator Initialization');
-        print('🚀 ═══════════════════════════════════════');
+        developer.log('🚀 ═══════════════════════════════════════');
+        developer.log('🚀 Starting App Orchestrator Initialization');
+        developer.log('🚀 ═══════════════════════════════════════');
       }
 
       final startTime = DateTime.now();
@@ -95,31 +100,34 @@ class AppOrchestrator {
       // 4. Inicializar Banco de Dados
       await _initializeDatabase();
 
-      // 5. Inicializar API Client
+      // 5. Inicializar Token Manager
+      await _initializeTokenManager();
+
+      // 6. Inicializar API Client
       await _initializeApiClient(apiBaseUrl ?? _getDefaultApiUrl());
 
-      // 6. Inicializar Autenticação
+      // 7. Inicializar Autenticação
       await _initializeAuthentication();
 
-      // 7. Inicializar Queue Manager
-      await _initializeQueueManager();
-
-      // 8. Inicializar Sync Engine
+      // 8. Inicializar Sync Engine (antes do QueueManager)
       await _initializeSyncEngine();
 
-      // 9. Inicializar Background Sync
+      // 9. Inicializar Queue Manager
+      await _initializeQueueManager();
+
+      // 10. Inicializar Background Sync
       await _initializeBackgroundSync();
 
-      // 10. Inicializar Module Registry
+      // 11. Inicializar Module Registry
       await _initializeModuleRegistry();
 
-      // 11. Carregar e Inicializar Módulos
+      // 12. Carregar e Inicializar Módulos
       await _registerAndInitializeModules();
 
-      // 12. Verificar Conectividade
+      // 13. Verificar Conectividade
       await _checkConnectivity();
 
-      // 13. Executar Health Check
+      // 14. Executar Health Check
       await _performHealthCheck();
 
       final duration = DateTime.now().difference(startTime);
@@ -128,10 +136,10 @@ class AppOrchestrator {
       _initializationCompleter.complete();
 
       if (kDebugMode) {
-        print('✅ ═══════════════════════════════════════');
-        print('✅ App Orchestrator Initialized Successfully');
-        print('✅ Total Time: ${duration.inMilliseconds}ms');
-        print('✅ ═══════════════════════════════════════');
+        developer.log('✅ ═══════════════════════════════════════');
+        developer.log('✅ App Orchestrator Initialized Successfully');
+        developer.log('✅ Total Time: ${duration.inMilliseconds}ms');
+        developer.log('✅ ═══════════════════════════════════════');
         _printInitializationSummary();
       }
 
@@ -148,10 +156,10 @@ class AppOrchestrator {
       _initializationCompleter.completeError(e, stackTrace);
 
       if (kDebugMode) {
-        print('❌ ═══════════════════════════════════════');
-        print('❌ App Orchestrator Initialization FAILED');
-        print('❌ Error: $e');
-        print('❌ ═══════════════════════════════════════');
+        developer.log('❌ ═══════════════════════════════════════');
+        developer.log('❌ App Orchestrator Initialization FAILED');
+        developer.log('❌ Error: $e');
+        developer.log('❌ ═══════════════════════════════════════');
       }
 
       // Capturar erro crítico no Sentry
@@ -200,8 +208,8 @@ class AppOrchestrator {
       final tempDir = await getTemporaryDirectory();
 
       if (kDebugMode) {
-        print('   App Directory: ${appDir.path}');
-        print('   Temp Directory: ${tempDir.path}');
+        developer.log('   App Directory: ${appDir.path}');
+        developer.log('   Temp Directory: ${tempDir.path}');
       }
 
       _completeStep(step, success: true);
@@ -245,16 +253,16 @@ class AppOrchestrator {
       }
 
       if (kDebugMode && validationResult.hasWarnings) {
-        print('   ⚠️  Schema warnings:');
+        developer.log('   ⚠️  Schema warnings:');
         for (final warning in validationResult.warnings) {
-          print('      - $warning');
+          developer.log('      - $warning');
         }
       }
 
       // Verificar se há migrações pendentes
-      final currentVersion = 1; //_dbAdapter.schemaVersion;
+      const currentVersion = 1; //_dbAdapter.schemaVersion;
       if (kDebugMode) {
-        print('   Database version: $currentVersion');
+        developer.log('   Database version: $currentVersion');
       }
 
       _completeStep(
@@ -271,20 +279,37 @@ class AppOrchestrator {
     }
   }
 
-  /// 5. Inicializar API Client
+  /// 5. Inicializar Token Manager
+  Future<void> _initializeTokenManager() async {
+    final step = _startStep('Token Manager', '🎟️');
+    try {
+      _tokenManager = TokenManager(
+        secureStorage: const FlutterSecureStorage(),
+        encryptionService: _encryptionService,
+        observabilityService: _observability,
+      );
+      await _tokenManager.loadTokens();
+      _completeStep(step, success: true);
+    } catch (e) {
+      _completeStep(step, success: false, error: e.toString());
+      rethrow;
+    }
+  }
+
+  /// 6. Inicializar API Client
   Future<void> _initializeApiClient(String baseUrl) async {
     final step = _startStep('API Client', '🌐');
 
     try {
-      // AuthService será inicializado depois, então passamos uma referência
       _apiClient = ApiClient(
         baseUrl: baseUrl,
-        authService: () => _authService,
-        observability: _observability,
+        client: http.Client(),
+        tokenManager: _tokenManager,
+        observabilityService: _observability,
       );
 
       if (kDebugMode) {
-        print('   Base URL: $baseUrl');
+        developer.log('   Base URL: $baseUrl');
       }
 
       _completeStep(step, success: true, metadata: {'baseUrl': baseUrl});
@@ -294,14 +319,14 @@ class AppOrchestrator {
     }
   }
 
-  /// 6. Inicializar Autenticação
+  /// 7. Inicializar Autenticação
   Future<void> _initializeAuthentication() async {
     final step = _startStep('Authentication Service', '🔑');
 
     try {
       _authService = AuthService(
-        secureStorage: const FlutterSecureStorage(),
         apiClient: _apiClient,
+        tokenManager: _tokenManager,
         googleSignIn: GoogleSignIn(scopes: ['email']),
       );
 
@@ -309,38 +334,13 @@ class AppOrchestrator {
       final hasValidSession = await _authService.hasValidSession();
 
       if (kDebugMode) {
-        print('   Valid Session: ${hasValidSession ? "Yes" : "No"}');
+        developer.log('   Valid Session: ${hasValidSession ? "Yes" : "No"}');
       }
 
       _completeStep(
         step,
         success: true,
         metadata: {'hasSession': hasValidSession},
-      );
-    } catch (e) {
-      _completeStep(step, success: false, error: e.toString());
-      rethrow;
-    }
-  }
-
-  /// 7. Inicializar Queue Manager
-  Future<void> _initializeQueueManager() async {
-    final step = _startStep('Queue Manager', '📋');
-
-    try {
-      _queueManager = QueueManager(db: _dbAdapter, syncEngine: _syncEngine);
-
-      // Carregar operações pendentes
-      final pendingCount = _queueManager.metrics.pendingOperations;
-
-      if (kDebugMode) {
-        print('   Pending Operations: $pendingCount');
-      }
-
-      _completeStep(
-        step,
-        success: true,
-        metadata: {'pendingOperations': pendingCount},
       );
     } catch (e) {
       _completeStep(step, success: false, error: e.toString());
@@ -356,7 +356,7 @@ class AppOrchestrator {
       _syncEngine = SyncEngine(
         db: _dbAdapter,
         apiClient: _apiClient,
-        observability: _observability,
+        observabilityService: _observability,
       );
 
       await _syncEngine.initialize();
@@ -366,7 +366,7 @@ class AppOrchestrator {
 
       if (kDebugMode && lastSync != null) {
         final timeSince = DateTime.now().difference(lastSync);
-        print('   Last Sync: ${timeSince.inMinutes} minutes ago');
+        developer.log('   Last Sync: ${timeSince.inMinutes} minutes ago');
       }
 
       _completeStep(
@@ -380,7 +380,32 @@ class AppOrchestrator {
     }
   }
 
-  /// 9. Inicializar Background Sync
+  /// 9. Inicializar Queue Manager
+  Future<void> _initializeQueueManager() async {
+    final step = _startStep('Queue Manager', '📋');
+
+    try {
+      _queueManager = QueueManager(db: _dbAdapter, syncEngine: _syncEngine);
+
+      // Carregar operações pendentes
+      final pendingCount = _queueManager.metrics.pendingOperations;
+
+      if (kDebugMode) {
+        developer.log('   Pending Operations: $pendingCount');
+      }
+
+      _completeStep(
+        step,
+        success: true,
+        metadata: {'pendingOperations': pendingCount},
+      );
+    } catch (e) {
+      _completeStep(step, success: false, error: e.toString());
+      rethrow;
+    }
+  }
+
+  /// 10. Inicializar Background Sync
   Future<void> _initializeBackgroundSync() async {
     final step = _startStep('Background Sync', '⏰');
 
@@ -399,7 +424,7 @@ class AppOrchestrator {
     }
   }
 
-  /// 10. Inicializar Module Registry
+  /// 11. Inicializar Module Registry
   Future<void> _initializeModuleRegistry() async {
     final step = _startStep('Module Registry', '🧩');
 
@@ -416,7 +441,7 @@ class AppOrchestrator {
     }
   }
 
-  /// 11. Registrar e Inicializar Módulos
+  /// 12. Registrar e Inicializar Módulos
   Future<void> _registerAndInitializeModules() async {
     final step = _startStep('App Modules', '📦');
 
@@ -426,7 +451,7 @@ class AppOrchestrator {
 
       if (_registry.getRegisteredModules().isEmpty) {
         if (kDebugMode) {
-          print('   ⚠️  No modules registered yet');
+          developer.log('   ⚠️  No modules registered yet');
         }
       } else {
         await _registry.initializeAll(
@@ -439,8 +464,8 @@ class AppOrchestrator {
         final lazyCount = _registry.getLazyModules().length;
 
         if (kDebugMode) {
-          print('   Initialized Modules: $initializedCount');
-          print('   Lazy Modules: $lazyCount');
+          developer.log('   Initialized Modules: $initializedCount');
+          developer.log('   Lazy Modules: $lazyCount');
         }
       }
 
@@ -451,7 +476,7 @@ class AppOrchestrator {
     }
   }
 
-  /// 12. Verificar Conectividade
+  /// 13. Verificar Conectividade
   Future<void> _checkConnectivity() async {
     final step = _startStep('Network Connectivity', '📡');
 
@@ -460,7 +485,7 @@ class AppOrchestrator {
       final isConnected = connectivityResult != ConnectivityResult.none;
 
       if (kDebugMode) {
-        print('   Connection: ${connectivityResult.toString()}');
+        developer.log('   Connection: ${connectivityResult.toString()}');
       }
 
       // Configurar contexto no Sentry
@@ -483,13 +508,13 @@ class AppOrchestrator {
     }
   }
 
-  /// 13. Health Check
+  /// 14. Health Check
   Future<void> _performHealthCheck() async {
     final step = _startStep('Health Check', '🏥');
 
     try {
-      final healthStatus = {
-        'database': true, //_dbAdapter.isHealthy,
+      final Map<String, bool> healthStatus = {
+        'database': _dbAdapter.isHealthy,
         'queueManager': _queueManager.isHealthy,
         'syncEngine': _syncEngine.isHealthy,
         'moduleRegistry': _registry.isInitialized,
@@ -531,7 +556,7 @@ class AppOrchestrator {
     _initializationSteps.add(step);
 
     if (kDebugMode) {
-      print('$icon Starting: $name...');
+      developer.log('$icon Starting: $name...');
     }
 
     _observability.addBreadcrumb(
@@ -559,13 +584,13 @@ class AppOrchestrator {
     final status = success ? '✅' : '❌';
 
     if (kDebugMode) {
-      print('$status ${step.icon} ${step.name} - ${duration}ms');
+      developer.log('$status ${step.icon} ${step.name} - ${duration}ms');
       if (error != null) {
-        print('   Error: $error');
+        developer.log('   Error: $error');
       }
       if (metadata != null && metadata.isNotEmpty) {
         metadata.forEach((key, value) {
-          print('   $key: $value');
+          developer.log('   $key: $value');
         });
       }
     }
@@ -578,13 +603,14 @@ class AppOrchestrator {
       (sum, step) => sum + (step.duration?.inMilliseconds ?? 0),
     );
 
-    print('\n📊 Initialization Summary:');
-    print('   Total Steps: ${_initializationSteps.length}');
-    print(
+    developer.log('\n📊 Initialization Summary:');
+    developer.log('   Total Steps: ${_initializationSteps.length}');
+    developer.log(
       '   Successful: ${_initializationSteps.where((s) => s.success).length}',
     );
-    print('   Failed: ${_initializationSteps.where((s) => !s.success).length}');
-    print('   Total Duration: ${totalDuration}ms\n');
+    developer.log(
+        '   Failed: ${_initializationSteps.where((s) => !s.success).length}');
+    developer.log('   Total Duration: ${totalDuration}ms\n');
   }
 
   /// Obtém URL padrão da API
@@ -600,23 +626,24 @@ class AppOrchestrator {
     if (!_isInitialized) return;
 
     try {
-      await _registry.disposeAll();
+      _registry.disposeAll();
       await _backgroundSync.dispose();
-      await _queueManager.dispose();
+      _queueManager.dispose();
       await _syncEngine.dispose();
       await _dbAdapter.close();
       _apiClient.dispose();
       await _observability.close();
+      await _tokenManager.clear();
 
       _isInitialized = false;
       _initializationSteps.clear();
 
       if (kDebugMode) {
-        print('🔒 AppOrchestrator disposed');
+        developer.log('🔒 AppOrchestrator disposed');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('❌ Error disposing AppOrchestrator: $e');
+        developer.log('❌ Error disposing AppOrchestrator: $e');
       }
     }
   }

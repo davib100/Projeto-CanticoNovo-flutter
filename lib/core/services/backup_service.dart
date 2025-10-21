@@ -1,7 +1,7 @@
 
-// core/services/backup_service.dart
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
@@ -9,8 +9,9 @@ import 'package:archive/archive_io.dart';
 import 'package:http/http.dart' as http;
 import 'package:myapp/core/db/database_adapter.dart';
 import 'package:myapp/core/security/encryption_service.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 import 'package:cryptography/cryptography.dart';
-
 
 class GoogleAuthClient extends http.BaseClient {
   final Map<String, String> _headers;
@@ -45,29 +46,38 @@ class BackupService {
     final authenticateClient = GoogleAuthClient(authHeaders);
     final driveApi = drive.DriveApi(authenticateClient);
 
-    // Exportar banco de dados
-    final dbFile = await _db.export();
+    // Exportar banco de dados para um arquivo
+    final dbFilePath = await _db.export();
+    final dbFile = File(dbFilePath);
+
+    // Ler os bytes do arquivo
+    final dbBytes = await dbFile.readAsBytes();
 
     // Criptografar com AES-256
     final internalKey = await _getInternalKey();
     final secretKey = SecretKey(internalKey);
-    final encryptedData = await _encryption.encrypt(dbFile.readAsBytesSync(), customKey: secretKey);
+    final encryptedData =
+        await _encryption.encrypt(dbBytes, customKey: secretKey);
 
     // Comprimir
     final compressed = GZipEncoder().encode(encryptedData.toBytes());
+    if (compressed == null) {
+      throw Exception('Compression failed');
+    }
 
     // Upload para Google Drive
     final driveFile = drive.File()
-      ..name = 'cantico_novo_backup_${DateTime.now().millisecondsSinceEpoch}.db.enc'
+      ..name =
+          'cantico_novo_backup_${DateTime.now().millisecondsSinceEpoch}.db.enc'
       ..parents = ['appDataFolder'];
 
     await driveApi.files.create(driveFile,
-        uploadMedia: drive.Media(Stream.value(compressed!), compressed.length));
+        uploadMedia: drive.Media(Stream.value(compressed), compressed.length));
   }
 
   Future<void> restoreBackup(String fileId) async {
     final account = await _googleSignIn.signIn();
-     if (account == null) {
+    if (account == null) {
       throw Exception('Google Sign-In failed');
     }
     final auth = await account.authentication;
@@ -79,23 +89,33 @@ class BackupService {
     final driveApi = drive.DriveApi(authenticateClient);
 
     // Download do arquivo
-    final response = await driveApi.files
-        .get(fileId, downloadOptions: drive.DownloadOptions.fullMedia)
-        as drive.Media;
+    final response = await driveApi.files.get(fileId,
+        downloadOptions: drive.DownloadOptions.fullMedia) as drive.Media;
 
     final dataBytes = await _streamToBytes(response.stream);
 
     // Descomprimir
     final decompressed = GZipDecoder().decodeBytes(dataBytes);
-    final encryptedData = EncryptedData.fromBytes(Uint8List.fromList(decompressed));
+    final encryptedData =
+        EncryptedData.fromBytes(Uint8List.fromList(decompressed));
 
     // Descriptografar
     final internalKey = await _getInternalKey();
     final secretKey = SecretKey(internalKey);
-    final decrypted = await _encryption.decrypt(encryptedData, customKey: secretKey);
+    final decryptedBytes =
+        await _encryption.decrypt(encryptedData, customKey: secretKey);
 
-    // Restaurar banco
-    await _db.restore(decrypted);
+    // Salvar os bytes descriptografados em um arquivo temporário
+    final tempDir = await getTemporaryDirectory();
+    final tempFilePath = p.join(tempDir.path, 'temp_restore.db');
+    final tempFile = File(tempFilePath);
+    await tempFile.writeAsBytes(decryptedBytes);
+
+    // Restaurar banco de dados a partir do arquivo temporário
+    await _db.restore(tempFilePath);
+
+    // Limpar o arquivo temporário
+    await tempFile.delete();
   }
 
   Future<List<int>> _getInternalKey() async {
@@ -106,9 +126,10 @@ class BackupService {
 
   Future<List<int>> _streamToBytes(Stream<List<int>> stream) {
     final completer = Completer<List<int>>();
-    final sink = ByteConversionSink.withCallback(
-        (bytes) => completer.complete(bytes));
-    stream.listen(sink.add, onError: completer.completeError, onDone: sink.close);
+    final sink =
+        ByteConversionSink.withCallback((bytes) => completer.complete(bytes));
+    stream.listen(sink.add,
+        onError: completer.completeError, onDone: sink.close);
     return completer.future;
   }
 }

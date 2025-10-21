@@ -6,38 +6,28 @@ import 'package:myapp/core/module_registry.dart';
   persistenceType: PersistenceType.queue, // Usa QueueManager
   priority: 2,
 )
-class LibraryModule extends BaseModule {
+class LibraryModule extends AppModule {
   @override
-  String get moduleName => 'LibraryModule';
+  String get name => 'LibraryModule';
 
   @override
-  Future<void> initialize() async {
-    // Registro de dependências
-    final container = ProviderContainer();
+  String get mainAction => 'Gerenciar Biblioteca';
 
-    logger.info('🎵 LibraryModule: Inicializando módulo...');
+  @override
+  bool get useQueue => true;
 
-    // Registra serviços no orquestrador
-    await registerServices();
+  LibraryModule({
+    ModulePriority priority = ModulePriority.normal,
+    bool lazy = false,
+  }) : super(priority: priority, lazy: lazy);
 
-    // Executa migração de schema se necessário
-    await runMigrations();
-
-    logger.success('✅ LibraryModule: Módulo inicializado com sucesso');
-  }
-
-  Future<void> registerServices() async {
-    // Serviços são providos via Riverpod
-    logger.info('📦 LibraryModule: Registrando serviços...');
-  }
-
-  Future<void> runMigrations() async {
-    final migrationManager = MigrationManager();
-    await migrationManager.runMigrations('library');
+  @override
+  Future<void> initialize(DatabaseAdapter db, QueueManager queue) async {
+    // ... (lógica de inicialização)
   }
 
   @override
-  Widget buildRoute(BuildContext context) {
-    return const LibraryScreen();
+  Future<void> dispose() async {
+    // ... (lógica de dispose)
   }
 }

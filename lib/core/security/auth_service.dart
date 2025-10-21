@@ -1,29 +1,40 @@
+import 'dart:async';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:myapp/core/services/api_client.dart';
 import 'package:myapp/core/security/token_manager.dart';
-import 'package:myapp/modules/auth/repositories/auth_repository.dart';
 
 class AuthService {
-  final AuthRepository _authRepository;
+  final ApiClient _apiClient;
   final TokenManager _tokenManager;
+  final GoogleSignIn _googleSignIn;
 
   AuthService({
-    required AuthRepository authRepository,
+    required ApiClient apiClient,
     required TokenManager tokenManager,
-  }) : _authRepository = authRepository,
-       _tokenManager = tokenManager;
+    required GoogleSignIn googleSignIn,
+  })  : _apiClient = apiClient,
+        _tokenManager = tokenManager,
+        _googleSignIn = googleSignIn;
+
+  Future<bool> hasValidSession() async {
+    return await _tokenManager.getAccessToken() != null;
+  }
 
   Future<void> login(String email, String password) async {
-    await _authRepository.login(email, password);
+    final response = await _apiClient.post('/auth/login', {
+      'email': email,
+      'password': password,
+    });
+
+    if (response.containsKey('accessToken')) {
+      await _tokenManager.storeAccessToken(response['accessToken']);
+    } else {
+      throw Exception('Login failed: Access token not found in response');
+    }
   }
 
   Future<void> logout() async {
-    await _authRepository.logout();
-  }
-
-  Future<String?> getAccessToken() async {
-    return await _tokenManager.getAccessToken();
-  }
-
-  Future<void> refreshToken() async {
-    // Implement refresh token logic here if needed
+    await _tokenManager.deleteAccessToken();
+    await _googleSignIn.signOut();
   }
 }

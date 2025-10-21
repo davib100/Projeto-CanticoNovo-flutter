@@ -28,9 +28,7 @@ class ModuleRegistry {
   /// Registra um módulo
   void register<T extends AppModule>(
     T module, {
-    ModulePriority priority = ModulePriority.normal,
     List<Type>? dependencies,
-    bool lazy = false,
   }) {
     if (_modules.containsKey(T)) {
       throw ModuleAlreadyRegisteredException(
@@ -41,9 +39,9 @@ class ModuleRegistry {
     _modules[T] = module;
     _metadata[T] = ModuleMetadata(
       type: T,
-      priority: priority,
+      priority: module.priority, // Usar a prioridade do módulo
       dependencies: dependencies ?? [],
-      lazy: lazy,
+      lazy: module.lazy, // Usar o lazy do módulo
       registeredAt: DateTime.now(),
     );
 
@@ -54,7 +52,7 @@ class ModuleRegistry {
 
     if (kDebugMode) {
       print(
-        '📦 Module registered: ${module.name} [Priority: ${priority.name}]',
+        '📦 Module registered: ${module.name} [Priority: ${module.priority.name}, Lazy: ${module.lazy}]',
       );
     }
   }
@@ -84,6 +82,7 @@ class ModuleRegistry {
 
     // Inicializar cada módulo
     for (final module in sortedModules) {
+      // A verificação de lazy agora é feita dentro de _initializeModule
       await _initializeModule(module, db, queue, observability);
     }
 
@@ -119,12 +118,18 @@ class ModuleRegistry {
     final metadata = _metadata[module.runtimeType]!;
 
     // Verificar se é lazy e não deve ser inicializado agora
-    if (metadata.lazy) {
+    if (metadata.lazy && !metadata.isInitialized) {
       if (kDebugMode) {
         print('⏭️  Skipping lazy module: ${module.name}');
       }
       return;
     }
+    
+    // Se já foi inicializado (pode acontecer com lazy modules), não faz nada.
+    if (metadata.isInitialized) {
+        return;
+    }
+
 
     final startTime = DateTime.now();
 
@@ -212,6 +217,9 @@ class ModuleRegistry {
     final db = _locator<DatabaseAdapter>();
     final queue = _locator<QueueManager>();
     final observability = _locator<ObservabilityService>();
+    
+    // Remove a flag lazy para forçar a inicialização
+    metadata.lazy = false;
 
     await _initializeModule(module, db, queue, observability);
   }
@@ -409,9 +417,11 @@ class ModuleRegistry {
 
   /// Verifica saúde do registry
   bool _checkHealth() {
+    // A saúde agora considera que módulos não-lazy devem ser inicializados.
+    // Módulos lazy podem ou não ser inicializados.
     for (final metadata in _metadata.values) {
       if (!metadata.lazy && !metadata.isInitialized) {
-        return false;
+        return false; // Se um módulo não-lazy não foi inicializado, não é saudável
       }
     }
     return true;
@@ -439,6 +449,11 @@ abstract class AppModule {
   /// Ação principal do módulo (para logging)
   String get mainAction;
 
+  final ModulePriority priority;
+  final bool lazy;
+
+  const AppModule({this.priority = ModulePriority.normal, this.lazy = false});
+
   /// Inicializa o módulo
   Future<void> initialize(DatabaseAdapter db, QueueManager queue);
 
@@ -451,7 +466,7 @@ class ModuleMetadata {
   final Type type;
   final ModulePriority priority;
   final List<Type> dependencies;
-  final bool lazy;
+  bool lazy; // Tornou-se mutável para o initializeLazy
   final DateTime registeredAt;
 
   bool isInitialized = false;
@@ -476,6 +491,7 @@ class ModuleMetadata {
         ')';
   }
 }
+
 
 /// Prioridade de inicialização do módulo
 enum ModulePriority {
@@ -525,7 +541,7 @@ class ModuleRegistryReport {
     buffer.writeln('Total Modules:        $totalModules');
     buffer.writeln('Initialized:          $initializedModules');
     buffer.writeln('Lazy (Not Init):      $lazyModules');
-    buffer.writeln('Uninitialized:        $uninitializedModules');
+    buffer.writeln('Uninitialized:        ${uninitializedModules > lazyModules ? uninitializedModules - lazyModules : 0}');
     buffer.writeln(
       'Health Status:        ${isHealthy ? "✅ HEALTHY" : "❌ UNHEALTHY"}',
     );
@@ -533,10 +549,13 @@ class ModuleRegistryReport {
     buffer.writeln('\nModule Details:');
     buffer.writeln('───────────────────────────────────────');
 
-    for (final entry in metadata.entries) {
-      final meta = entry.value;
+    final sortedMetadata = metadata.values.toList()
+      ..sort((a, b) => b.priority.value.compareTo(a.priority.value));
+
+    for (final meta in sortedMetadata) {
+       final statusIcon = meta.isInitialized ? "✅" : (meta.lazy ? "💤" : "⏸️");
       buffer.writeln(
-        '${meta.isInitialized ? "✅" : "⏸️ "} ${entry.key.toString()}',
+        '$statusIcon ${meta.type.toString()}',
       );
       buffer.writeln('   Priority: ${meta.priority.name}');
       buffer.writeln('   Lazy: ${meta.lazy}');
@@ -546,7 +565,7 @@ class ModuleRegistryReport {
         );
       }
       if (meta.dependencies.isNotEmpty) {
-        buffer.writeln('   Dependencies: ${meta.dependencies.length}');
+        buffer.writeln('   Dependencies: ${meta.dependencies.join(', ')}');
       }
       buffer.writeln('───────────────────────────────────────');
     }

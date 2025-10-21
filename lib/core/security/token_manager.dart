@@ -7,18 +7,21 @@ class TokenManager {
   final EncryptionService _encryptionService;
   final ObservabilityService _observabilityService;
 
+  String? _accessToken;
+
   TokenManager({
     required FlutterSecureStorage secureStorage,
     required EncryptionService encryptionService,
     required ObservabilityService observabilityService,
-  }) : _secureStorage = secureStorage,
-       _encryptionService = encryptionService,
-       _observabilityService = observabilityService;
+  })  : _secureStorage = secureStorage,
+        _encryptionService = encryptionService,
+        _observabilityService = observabilityService;
 
   Future<void> storeAccessToken(String token) async {
     try {
       final encryptedToken = await _encryptionService.encryptString(token);
       await _secureStorage.write(key: 'access_token', value: encryptedToken);
+      _accessToken = token;
       _observabilityService.addBreadcrumb('Access token stored successfully');
     } catch (e) {
       _observabilityService.captureException(e, stackTrace: StackTrace.current);
@@ -26,13 +29,21 @@ class TokenManager {
     }
   }
 
+  Future<void> loadTokens() async {
+    _accessToken = await getAccessToken();
+  }
+
   Future<String?> getAccessToken() async {
+    if (_accessToken != null) {
+      return _accessToken;
+    }
     try {
       final encryptedToken = await _secureStorage.read(key: 'access_token');
       if (encryptedToken == null) {
         return null;
       }
       final token = await _encryptionService.decryptString(encryptedToken);
+      _accessToken = token;
       _observabilityService.addBreadcrumb(
         'Access token retrieved successfully',
       );
@@ -46,10 +57,19 @@ class TokenManager {
   Future<void> deleteAccessToken() async {
     try {
       await _secureStorage.delete(key: 'access_token');
+      _accessToken = null;
       _observabilityService.addBreadcrumb('Access token deleted successfully');
     } catch (e) {
       _observabilityService.captureException(e, stackTrace: StackTrace.current);
       throw Exception('Failed to delete access token');
     }
+  }
+
+  Future<void> clear() async {
+    await deleteAccessToken();
+  }
+
+  void dispose() {
+    _accessToken = null;
   }
 }

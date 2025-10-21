@@ -17,16 +17,18 @@ class ApiClient {
     required http.Client client,
     required TokenManager tokenManager,
     required ObservabilityService observabilityService,
-  }) : _client = client,
-       _tokenManager = tokenManager,
-       _observabilityService = observabilityService;
+  })  : _client = client,
+        _tokenManager = tokenManager,
+        _observabilityService = observabilityService;
 
-  Future<Map<String, dynamic>> get(String endpoint, {Map<String, String>? queryParams}) async {
+  Future<Map<String, dynamic>> get(String endpoint,
+      {Map<String, String>? queryParams}) async {
     final span = _observabilityService.startChild(
       'http.get',
       description: endpoint,
     );
-    final uri = Uri.parse('$baseUrl$endpoint').replace(queryParameters: queryParams);
+    final uri =
+        Uri.parse('$baseUrl$endpoint').replace(queryParameters: queryParams);
 
     try {
       final headers = await _getHeaders();
@@ -46,7 +48,8 @@ class ApiClient {
     } catch (e, stackTrace) {
       span?.status = const SpanStatus.internalError();
       span?.throwable = e;
-      _observabilityService.captureException(e, stackTrace: stackTrace, endpoint: 'ApiClient.get');
+      _observabilityService.captureException(e,
+          stackTrace: stackTrace, endpoint: 'ApiClient.get');
       rethrow;
     } finally {
       await span?.finish();
@@ -82,7 +85,8 @@ class ApiClient {
     } catch (e, stackTrace) {
       span?.status = const SpanStatus.internalError();
       span?.throwable = e;
-       _observabilityService.captureException(e, stackTrace: stackTrace, endpoint: 'ApiClient.post');
+      _observabilityService.captureException(e,
+          stackTrace: stackTrace, endpoint: 'ApiClient.post');
       rethrow;
     } finally {
       await span?.finish();
@@ -95,5 +99,9 @@ class ApiClient {
       'Content-Type': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',
     };
+  }
+
+  void dispose() {
+    _client.close();
   }
 }

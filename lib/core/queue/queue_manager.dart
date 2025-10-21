@@ -95,12 +95,12 @@ class QueueManager {
     ObservabilityService? observability,
     QueueConfig? config,
     ConnectivityService? connectivityService,
-  }) : _dbAdapter = db as DatabaseAdapterImpl,
-       _syncEngine = syncEngine,
-       _observability = observability ?? ObservabilityService(),
-       _config = config ?? QueueConfig.defaults(),
-       _connectivityService =
-           connectivityService ?? ConnectivityService.instance {
+  })  : _dbAdapter = db as DatabaseAdapterImpl,
+        _syncEngine = syncEngine,
+        _observability = observability ?? ObservabilityService(),
+        _config = config ?? QueueConfig.defaults(),
+        _connectivityService =
+            connectivityService ?? ConnectivityService.instance {
     for (final priority in QueuePriority.values) {
       _priorityQueues[priority] = Queue(
         parallel: _config.concurrency,
@@ -118,6 +118,8 @@ class QueueManager {
   QueueMetrics get metrics => _metrics;
 
   int get size => _metrics.pendingOperations;
+
+  bool get isHealthy => !_isPaused && _connectivityService.isConnected;
 
   Future<void> add(QueuedOperation operation) async {
     if (_isPaused) {

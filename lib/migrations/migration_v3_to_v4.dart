@@ -3,7 +3,7 @@ import 'package:drift/drift.dart';
 import '../core/db/migration_manager.dart';
 
 /// Migration v3 → v4: Full-Text Search e otimizações avançadas
-/// 
+///
 /// Mudanças:
 /// - Cria FTS5 virtual table para busca full-text em songs
 /// - Adiciona triggers para manter FTS sincronizado
@@ -12,13 +12,13 @@ import '../core/db/migration_manager.dart';
 class MigrationV3ToV4 implements Migration {
   @override
   String get description => 'Add full-text search and advanced optimizations';
-  
+
   @override
   Future<void> migrate(Migrator migrator) async {
     // ══════════════════════════════════════════
     // CRIAR FTS5 VIRTUAL TABLE
     // ══════════════════════════════════════════
-    
+
     await migrator.database.customStatement('''
       CREATE VIRTUAL TABLE songs_fts USING fts5(
         title,
@@ -29,17 +29,17 @@ class MigrationV3ToV4 implements Migration {
         tokenize='porter unicode61'
       )
     ''');
-    
+
     // Popular FTS com dados existentes
     await migrator.database.customStatement('''
       INSERT INTO songs_fts(rowid, title, lyrics, author)
       SELECT id, title, lyrics, author FROM songs WHERE deleted_at IS NULL
     ''');
-    
+
     // ══════════════════════════════════════════
     // TRIGGERS PARA FTS
     // ══════════════════════════════════════════
-    
+
     // Trigger para INSERT
     await migrator.database.customStatement('''
       CREATE TRIGGER songs_fts_insert_v4
@@ -49,7 +49,7 @@ class MigrationV3ToV4 implements Migration {
         VALUES (NEW.id, NEW.title, NEW.lyrics, NEW.author);
       END
     ''');
-    
+
     // Trigger para UPDATE
     await migrator.database.customStatement('''
       CREATE TRIGGER songs_fts_update_v4
@@ -60,7 +60,7 @@ class MigrationV3ToV4 implements Migration {
         WHERE rowid = NEW.id;
       END
     ''');
-    
+
     // Trigger para DELETE (hard delete)
     await migrator.database.customStatement('''
       CREATE TRIGGER songs_fts_delete_v4
@@ -69,7 +69,7 @@ class MigrationV3ToV4 implements Migration {
         DELETE FROM songs_fts WHERE rowid = OLD.id;
       END
     ''');
-    
+
     // Trigger para soft delete (remover do FTS)
     await migrator.database.customStatement('''
       CREATE TRIGGER songs_fts_soft_delete_v4
@@ -79,32 +79,30 @@ class MigrationV3ToV4 implements Migration {
         DELETE FROM songs_fts WHERE rowid = NEW.id;
       END
     ''');
-    
+
     // ══════════════════════════════════════════
     // ÍNDICES COMPOSTOS OTIMIZADOS
     // ══════════════════════════════════════════
-    
+
     // Índice composto para queries comuns (categoria + favorito)
     await migrator.database.customStatement('''
       CREATE INDEX idx_songs_category_favorite_v4 
       ON songs(category_id, is_favorite) 
       WHERE deleted_at IS NULL
     ''');
-    
+
     // Índice para ordenação por data de atualização
     await migrator.database.customStatement(
-      'CREATE INDEX idx_songs_updated_desc_v4 ON songs(updated_at DESC) WHERE deleted_at IS NULL'
-    );
-    
+        'CREATE INDEX idx_songs_updated_desc_v4 ON songs(updated_at DESC) WHERE deleted_at IS NULL');
+
     // Índice para sync_log otimizado
     await migrator.database.customStatement(
-      'CREATE INDEX idx_sync_entity_status_v4 ON sync_log(entity_type, entity_id, status)'
-    );
-    
+        'CREATE INDEX idx_sync_entity_status_v4 ON sync_log(entity_type, entity_id, status)');
+
     // ══════════════════════════════════════════
     // TABELA DE CONFLITOS
     // ══════════════════════════════════════════
-    
+
     await migrator.database.customStatement('''
       CREATE TABLE conflict_log (
         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -117,15 +115,14 @@ class MigrationV3ToV4 implements Migration {
         resolved_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
       )
     ''');
-    
+
     await migrator.database.customStatement(
-      'CREATE INDEX idx_conflict_entity_v4 ON conflict_log(entity_type, entity_id)'
-    );
-    
+        'CREATE INDEX idx_conflict_entity_v4 ON conflict_log(entity_type, entity_id)');
+
     // ══════════════════════════════════════════
     // TABELA DE CONFLITOS MANUAIS
     // ══════════════════════════════════════════
-    
+
     await migrator.database.customStatement('''
       CREATE TABLE manual_conflict_queue (
         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -138,22 +135,21 @@ class MigrationV3ToV4 implements Migration {
         resolved_at INTEGER
       )
     ''');
-    
+
     await migrator.database.customStatement(
-      'CREATE INDEX idx_manual_conflict_status_v4 ON manual_conflict_queue(status, created_at)'
-    );
-    
+        'CREATE INDEX idx_manual_conflict_status_v4 ON manual_conflict_queue(status, created_at)');
+
     // ══════════════════════════════════════════
     // OTIMIZAÇÕES DE PERFORMANCE
     // ══════════════════════════════════════════
-    
+
     // Atualizar estatísticas do banco
     await migrator.database.customStatement('ANALYZE');
-    
+
     // ══════════════════════════════════════════
     // REGISTRAR MIGRAÇÃO
     // ══════════════════════════════════════════
-    
+
     await migrator.database.customInsert(
       'INSERT INTO migration_history (version, description, applied_at) VALUES (?, ?, ?)',
       variables: [
