@@ -59,3 +59,67 @@ export const config = {
 export const isDevelopment = config.NODE_ENV === 'development';
 export const isProduction = config.NODE_ENV === 'production';
 export const isTest = config.NODE_ENV === 'test';
+
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+
+export const config = {
+  // Server
+  PORT: process.env.PORT || 3000,
+  NODE_ENV: process.env.NODE_ENV || 'development',
+  API_VERSION: process.env.API_VERSION || 'v1',
+
+  // Database
+  DB_PATH: process.env.DB_PATH || path.join(__dirname, '..', 'database.sqlite'),
+
+  // JWT
+  JWT_SECRET: process.env.JWT_SECRET || 'cantico-novo-super-secret-key-change-in-production',
+  JWT_EXPIRATION: process.env.JWT_EXPIRATION || '1h',
+  JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || 'cantico-novo-refresh-secret-key',
+  JWT_REFRESH_EXPIRATION: process.env.JWT_REFRESH_EXPIRATION || '30d',
+
+  // OAuth Google
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+  GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/auth/google/callback',
+
+  // OAuth Microsoft
+  MICROSOFT_CLIENT_ID: process.env.MICROSOFT_CLIENT_ID,
+  MICROSOFT_CLIENT_SECRET: process.env.MICROSOFT_CLIENT_SECRET,
+  MICROSOFT_REDIRECT_URI: process.env.MICROSOFT_REDIRECT_URI,
+
+  // OAuth Facebook
+  FACEBOOK_APP_ID: process.env.FACEBOOK_APP_ID,
+  FACEBOOK_APP_SECRET: process.env.FACEBOOK_APP_SECRET,
+  FACEBOOK_REDIRECT_URI: process.env.FACEBOOK_REDIRECT_URI,
+
+  // Email
+  EMAIL_HOST: process.env.EMAIL_HOST || 'smtp.gmail.com',
+  EMAIL_PORT: process.env.EMAIL_PORT || 587,
+  EMAIL_USER: process.env.EMAIL_USER,
+  EMAIL_PASSWORD: process.env.EMAIL_PASSWORD,
+  EMAIL_FROM: process.env.EMAIL_FROM || 'noreply@canticonovo.com',
+
+  // Security
+  BCRYPT_ROUNDS: parseInt(process.env.BCRYPT_ROUNDS || '10', 10),
+  MAX_LOGIN_ATTEMPTS: parseInt(process.env.MAX_LOGIN_ATTEMPTS || '5', 10),
+  LOCKOUT_DURATION: parseInt(process.env.LOCKOUT_DURATION || '15', 10), // minutes
+
+  // Rate Limiting
+  RATE_LIMIT_WINDOW: parseInt(process.env.RATE_LIMIT_WINDOW || '15', 10), // minutes
+  RATE_LIMIT_MAX_REQUESTS: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100', 10),
+
+  // CORS
+  CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
+
+  // Sentry
+  SENTRY_DSN: process.env.SENTRY_DSN,
+};
+
+export default config;

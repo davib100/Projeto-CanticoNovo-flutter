@@ -1,11 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dartz/dartz.dart';
 import 'package:cantico_novo/core/observability/logger.dart';
-import '../../domain/entities/user_entity.dart';
-import '../../domain/usecases/login_usecase.dart';
-import '../../domain/usecases/register_usecase.dart';
-import '../../domain/usecases/logout_usecase.dart';
-import '../../domain/usecases/reset_password_usecase.dart';
+import '../../../shared/entities/user_entity.dart';
+import '../usecases/login_usecase.dart';
+import '../usecases/register_usecase.dart';
+import '../usecases/logout_usecase.dart';
+import '../usecases/reset_password_usecase.dart';
 
 // State
 class AuthState {
@@ -357,3 +357,4 @@ extension AuthProviderExtension on AuthProvider {
     }
   }
 }
+

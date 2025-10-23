@@ -59,6 +59,10 @@ dependencies:
   provider: ^6.1.5+1
   google_fonts: ^6.3.2
   go_router: ^16.2.5
+  dio: ^5.9.0
+  dartz: ^0.10.1
+  logger: ^2.6.2
+  animations: ^2.1.0
 
 
 dev_dependencies:

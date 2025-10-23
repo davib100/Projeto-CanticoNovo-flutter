@@ -5,6 +5,7 @@ import 'dart:math';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:crypto/crypto.dart' as crypto;
@@ -782,3 +783,11 @@ class DecryptionException implements Exception {
   @override
   String toString() => 'DecryptionException: $message';
 }
+
+final flutterSecureStorageProvider = Provider<FlutterSecureStorage>((ref) => const FlutterSecureStorage());
+
+final encryptionServiceProvider = Provider<EncryptionService>((ref) {
+  return EncryptionService(
+    ref.watch(flutterSecureStorageProvider),
+  );
+});

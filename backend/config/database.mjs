@@ -610,3 +610,122 @@ export default {
   optimizeDatabase,
   getDatabaseStats,
 };
+
+import sqlite3 from 'sqlite3';
+import { open } from 'sqlite';
+import { config } from './env.mjs';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+let db = null;
+
+export async function initDatabase() {
+  try {
+    // Criar diretório do banco se não existir
+    const dbDir = path.dirname(config.DB_PATH);
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true });
+    }
+
+    // Abrir conexão com SQLite
+    db = await open({
+      filename: config.DB_PATH,
+      driver: sqlite3.Database,
+    });
+
+    // Habilitar WAL mode para melhor concorrência
+    await db.exec('PRAGMA journal_mode = WAL');
+    await db.exec('PRAGMA foreign_keys = ON');
+
+    console.log('✅ Database connected successfully');
+
+    // Executar migrations
+    await runMigrations();
+
+    return db;
+  } catch (error) {
+    console.error('❌ Database connection failed:', error);
+    throw error;
+  }
+}
+
+async function runMigrations() {
+  try {
+    // Criar tabela de migrations se não existir
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS migrations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        executed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Ler arquivos de migration
+    const migrationsDir = path.join(__dirname, '..', 'migrations');
+    
+    if (!fs.existsSync(migrationsDir)) {
+      console.log('⚠️  No migrations directory found');
+      return;
+    }
+
+    const migrationFiles = fs
+      .readdirSync(migrationsDir)
+      .filter(file => file.endsWith('.sql'))
+      .sort();
+
+    for (const file of migrationFiles) {
+      const migrationName = file;
+
+      // Verificar se já foi executada
+      const executed = await db.get(
+        'SELECT * FROM migrations WHERE name = ?',
+        [migrationName]
+      );
+
+      if (!executed) {
+        console.log(`🔄 Running migration: ${migrationName}`);
+
+        const migrationPath = path.join(migrationsDir, file);
+        const sql = fs.readFileSync(migrationPath, 'utf8');
+
+        await db.exec(sql);
+        await db.run(
+          'INSERT INTO migrations (name) VALUES (?)',
+          [migrationName]
+        );
+
+        console.log(`✅ Migration completed: ${migrationName}`);
+      }
+    }
+
+    console.log('✅ All migrations completed');
+  } catch (error) {
+    console.error('❌ Migration failed:', error);
+    throw error;
+  }
+}
+
+export function getDatabase() {
+  if (!db) {
+    throw new Error('Database not initialized. Call initDatabase() first.');
+  }
+  return db;
+}
+
+export async function closeDatabase() {
+  if (db) {
+    await db.close();
+    db = null;
+    console.log('✅ Database connection closed');
+  }
+}
+
+export default {
+  initDatabase,
+  getDatabase,
+  closeDatabase,
+};

@@ -32,3 +32,30 @@ export function isValidUUID(str) {
     return { limit: parsedLimit, offset: parsedOffset };
   }
   
+  export function validateEmail(email) {
+    const emailRegex = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/;
+    return emailRegex.test(email);
+  }
+  
+  export function validatePassword(password) {
+    if (!password || password.length < 8) {
+      return false;
+    }
+    return true;
+  }
+  
+  export function validateFullName(name) {
+    return name && name.trim().length >= 2;
+  }
+  
+  export function sanitizeEmail(email) {
+    return email.toLowerCase().trim();
+  }
+  
+  export default {
+    validateEmail,
+    validatePassword,
+    validateFullName,
+    sanitizeEmail,
+  };
+  

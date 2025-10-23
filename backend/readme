@@ -1,0 +1,242 @@
+# 🔐 Cântico Novo - Backend API
+
+Backend completo do aplicativo Cântico Novo com autenticação JWT, OAuth e single-device enforcement.
+
+## 🚀 Tecnologias
+
+- **Node.js** 18+
+- **Express.js** 4.x
+- **SQLite** 3.x (com WAL mode)
+- **JWT** (Access + Refresh Tokens rotativos)
+- **Bcrypt** (Hash de senhas)
+- **OAuth 2.0** (Google, Microsoft, Facebook)
+- **Nodemailer** (Emails transacionais)
+
+## 📦 Instalação
+
+Instalar dependências
+npm install
+
+Copiar variáveis de ambiente
+cp .env.example .env
+
+Editar .env com suas configurações
+nano .env
+
+Iniciar servidor em desenvolvimento
+npm run dev
+
+Iniciar servidor em produção
+npm start
+
+text
+
+## 🗄️ Estrutura do Banco
+
+O banco de dados SQLite é criado automaticamente na primeira execução com as seguintes tabelas:
+
+- **users** - Dados dos usuários
+- **sessions** - Sessões ativas (single-device)
+- **password_reset_tokens** - Tokens de redefinição de senha
+- **email_verification_tokens** - Tokens de verificação de email
+
+## 🔒 Segurança
+
+### Autenticação JWT
+
+- **Access Token**: Expira em 1 hora
+- **Refresh Token**: Expira em 30 dias (rotativo)
+- **Single-Device**: Apenas 1 dispositivo ativo por usuário
+
+### Rate Limiting
+
+- **Login**: 5 tentativas / 15 minutos
+- **Registro**: 3 registros / hora
+- **Reset Senha**: 3 solicitações / hora
+- **API Geral**: 100 requests / 15 minutos
+
+### Proteção de Conta
+
+- Bloqueio automático após 5 tentativas falhas (15 min)
+- Senhas com hash bcrypt (10 rounds)
+- Tokens criptografados
+- HTTPS obrigatório em produção
+
+## 📡 Endpoints
+
+### Autenticação Pública
+
+POST /api/v1/auth/register Registrar usuário
+POST /api/v1/auth/login Login email/senha
+POST /api/v1/auth/google Login com Google
+POST /api/v1/auth/microsoft Login com Microsoft
+POST /api/v1/auth/facebook Login com Facebook
+POST /api/v1/auth/refresh Renovar token
+POST /api/v1/auth/logout Fazer logout
+POST /api/v1/auth/reset-password Solicitar reset
+POST /api/v1/auth/reset-password/confirm Confirmar reset
+
+text
+
+### Rotas Protegidas (requerem token)
+
+GET /api/v1/auth/me Dados do usuário
+GET /api/v1/auth/sessions Listar sessões
+POST /api/v1/auth/revoke-session Revogar sessão
+
+text
+
+## 📝 Exemplos de Uso
+
+### Registro
+
+curl -X POST http://localhost:3000/api/v1/auth/register
+-H "Content-Type: application/json"
+-d '{
+"fullName": "João Silva",
+"email": "joao@example.com",
+"password": "SenhaForte123",
+"deviceId": "device-uuid-123"
+}'
+
+text
+
+### Login
+
+curl -X POST http://localhost:3000/api/v1/auth/login
+-H "Content-Type: application/json"
+-d '{
+"email": "joao@example.com",
+"password": "SenhaForte123",
+"deviceId": "device-uuid-123",
+"rememberMe": true
+}'
+
+text
+
+### Refresh Token
+
+curl -X POST http://localhost:3000/api/v1/auth/refresh
+-H "Content-Type: application/json"
+-d '{
+"refreshToken": "your-refresh-token"
+}'
+
+text
+
+### Rota Protegida
+
+curl -X GET http://localhost:3000/api/v1/auth/me
+-H "Authorization: Bearer your-access-token"
+
+text
+
+## 🧪 Testes
+
+Executar testes
+npm test
+
+Executar com coverage
+npm test -- --coverage
+
+text
+
+## 📊 Monitoramento
+
+### Logs
+
+Todos os requests são logados com:
+- Timestamp
+- Método HTTP
+- Path
+- Status Code
+- Duração
+- IP
+- User Agent
+
+### Health Check
+
+curl http://localhost:3000/health
+
+text
+
+Resposta:
+{
+"status": "ok",
+"timestamp": "2025-10-10T18:30:00.000Z",
+"uptime": 12345.67
+}
+
+text
+
+## 🔧 Configuração OAuth
+
+### Google
+
+1. Acesse [Google Cloud Console](https://console.cloud.google.com)
+2. Crie um projeto
+3. Ative Google+ API
+4. Crie credenciais OAuth 2.0
+5. Configure redirect URI: `http://localhost:3000/auth/google/callback`
+6. Adicione Client ID e Secret no `.env`
+
+### Microsoft
+
+1. Acesse [Azure Portal](https://portal.azure.com)
+2. Registre um aplicativo
+3. Configure redirect URI
+4. Adicione Client ID e Secret no `.env`
+
+### Facebook
+
+1. Acesse [Facebook Developers](https://developers.facebook.com)
+2. Crie um app
+3. Configure Facebook Login
+4. Adicione App ID e Secret no `.env`
+
+## 📧 Configuração de Email
+
+### Gmail
+
+1. Ative "Verificação em 2 etapas"
+2. Gere uma "Senha de app"
+3. Configure no `.env`:
+
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=seu-email@gmail.com
+EMAIL_PASSWORD=sua-senha-de-app
+
+text
+
+## 🚀 Deploy
+
+### Produção
+
+Build
+npm run build
+
+Start
+NODE_ENV=production npm start
+
+text
+
+### Docker
+
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY . .
+EXPOSE 3000
+CMD ["npm", "start"]
+
+text
+
+## 📄 Licença
+
+MIT © Cântico Novo Team
+
+---
+
+**Desenvolvido com ❤️ para o projeto Cântico Novo** 🎵

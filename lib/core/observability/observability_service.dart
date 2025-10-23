@@ -1,6 +1,7 @@
 // core/observability/observability_service.dart
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -683,3 +684,7 @@ class NoOpSentrySpan implements ISentrySpan {
   @override
   DateTime? get endTimestamp => DateTime(1970);
 }
+
+final observabilityServiceProvider = Provider<ObservabilityService>((ref) {
+  return ObservabilityService();
+});

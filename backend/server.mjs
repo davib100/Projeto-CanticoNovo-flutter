@@ -90,3 +90,88 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // Inicia servidor
 startServer();
+
+import express from 'express';
+import { config } from './config/env.mjs';
+import { configureApp } from './config/app.mjs';
+import { initDatabase, closeDatabase } from './config/database.mjs';
+import authRoutes from './routes/authRoutes.mjs';
+import errorHandler from './middlewares/errorHandler.mjs';
+import requestLogger from './middlewares/requestLogger.mjs';
+import { generalLimiter } from './middlewares/rateLimitMiddleware.mjs';
+
+const app = express();
+
+// Configurar app
+configureApp(app);
+
+// Request logging
+app.use(requestLogger);
+
+// Rate limiting geral
+app.use('/api', generalLimiter);
+
+// Routes
+app.use(`/api/${config.API_VERSION}/auth`, authRoutes);
+
+// 404 handler
+app.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Endpoint não encontrado',
+  });
+});
+
+// Error handler (deve ser o último middleware)
+app.use(errorHandler);
+
+// Inicializar servidor
+async function startServer() {
+  try {
+    // Inicializar banco de dados
+    await initDatabase();
+
+    // Iniciar servidor
+    app.listen(config.PORT, () => {
+      console.log('🚀 ==========================================');
+      console.log(`🎵 Cântico Novo Backend - ${config.NODE_ENV}`);
+      console.log(`📡 Server running on port ${config.PORT}`);
+      console.log(`🔗 http://localhost:${config.PORT}`);
+      console.log(`💾 Database: ${config.DB_PATH}`);
+      console.log('🚀 ==========================================');
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('⚠️  SIGTERM signal received: closing server');
+  await closeDatabase();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('⚠️  SIGINT signal received: closing server');
+  await closeDatabase();
+  process.exit(0);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});
+
+// Start
+startServer();
+
+export default app;
+otimo, adfi

@@ -34,7 +34,7 @@ class AuthService {
   }
 
   Future<void> logout() async {
-    await _tokenManager.deleteAccessToken();
+    await _tokenManager.deleteTokens();
     await _googleSignIn.signOut();
   }
 }

@@ -37,3 +37,27 @@ export function requestLogger(req, res, next) {
 
   next();
 }
+
+export function requestLogger(req, res, next) {
+  const start = Date.now();
+
+  // Interceptar o response
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    const log = {
+      timestamp: new Date().toISOString(),
+      method: req.method,
+      path: req.path,
+      status: res.statusCode,
+      duration: `${duration}ms`,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    };
+
+    console.log(JSON.stringify(log));
+  });
+
+  next();
+}
+
+export default requestLogger;

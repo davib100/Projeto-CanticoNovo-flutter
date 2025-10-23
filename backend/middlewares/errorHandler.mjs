@@ -35,3 +35,49 @@ export function errorHandler(err, req, res, next) {
 
   res.status(statusCode).json(errorResponse);
 }
+
+import { config } from '../config/env.mjs';
+
+export function errorHandler(err, req, res, next) {
+  console.error('Error:', err);
+
+  // Log para Sentry ou outro serviço de monitoramento
+  if (config.SENTRY_DSN) {
+    // TODO: Integrar com Sentry
+  }
+
+  // Erro de validação
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({
+      success: false,
+      error: 'Erro de validação',
+      details: err.errors,
+    });
+  }
+
+  // Erro de JWT
+  if (err.name === 'JsonWebTokenError') {
+    return res.status(401).json({
+      success: false,
+      error: 'Token inválido',
+    });
+  }
+
+  if (err.name === 'TokenExpiredError') {
+    return res.status(401).json({
+      success: false,
+      error: 'Token expirado',
+    });
+  }
+
+  // Erro genérico
+  res.status(err.status || 500).json({
+    success: false,
+    error: config.NODE_ENV === 'development' 
+      ? err.message 
+      : 'Erro interno do servidor',
+    ...(config.NODE_ENV === 'development' && { stack: err.stack }),
+  });
+}
+
+export default errorHandler;

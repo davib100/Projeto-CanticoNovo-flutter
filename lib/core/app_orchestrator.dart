@@ -420,7 +420,7 @@ class AppOrchestrator {
       _completeStep(step, success: true);
     } catch (e) {
       _completeStep(step, success: false, error: e.toString());
-      rethrow;
+      // Não re-throw - conectividade não é crítica
     }
   }
 
@@ -633,7 +633,7 @@ class AppOrchestrator {
       await _dbAdapter.close();
       _apiClient.dispose();
       await _observability.close();
-      await _tokenManager.clear();
+      await _tokenManager.deleteTokens();
 
       _isInitialized = false;
       _initializationSteps.clear();

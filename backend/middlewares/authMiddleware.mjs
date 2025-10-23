@@ -56,3 +56,73 @@ export function optionalAuth(req, res, next) {
     next();
   }
 }
+
+import TokenService from '../services/tokenService.mjs';
+import SessionModel from '../models/sessionModel.mjs';
+
+export async function authMiddleware(req, res, next) {
+  try {
+    // Extrair token do header Authorization
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        error: 'Token não fornecido',
+      });
+    }
+
+    const token = authHeader.substring(7); // Remove "Bearer "
+
+    // Verificar token
+    let decoded;
+    try {
+      decoded = TokenService.verifyAccessToken(token);
+    } catch (error) {
+      return res.status(401).json({
+        success: false,
+        error: 'Token inválido ou expirado',
+      });
+    }
+
+    // Verificar se sessão está ativa
+    const session = await SessionModel.findByDeviceId(decoded.deviceId);
+
+    if (!session || !session.is_active) {
+      return res.status(401).json({
+        success: false,
+        error: 'Sessão inválida',
+      });
+    }
+
+    // Verificar se sessão expirou
+    if (await SessionModel.isExpired(session)) {
+      await SessionModel.revokeById(session.id);
+      return res.status(401).json({
+        success: false,
+        error: 'Sessão expirada',
+      });
+    }
+
+    // Atualizar última atividade
+    await SessionModel.updateLastActivity(session.id);
+
+    // Anexar dados do usuário ao request
+    req.user = {
+      userId: decoded.userId,
+      email: decoded.email,
+      deviceId: decoded.deviceId,
+    };
+
+    next();
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao validar autenticação',
+    });
+  }
+}
+
+export default authMiddleware;

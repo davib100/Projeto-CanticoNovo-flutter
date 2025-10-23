@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
@@ -182,42 +183,61 @@ class DatabaseAdapterImpl extends DatabaseAdapter {
   }
 
   @override
-  Future<void> insertGeneric(String table, Map<String, dynamic> data,
-      {dynamic transaction}) async {
+  Future<int> insert({
+    required String table,
+    required Map<String, dynamic> data,
+    ConflictAlgorithm? conflictAlgorithm,
+    dynamic transaction,
+  }) async {
     final db = transaction?.executor ?? _db.executor;
     final columns = data.keys.join(', ');
     final placeholders = List.filled(data.length, '?').join(', ');
-    final sql = 'INSERT INTO $table ($columns) VALUES ($placeholders)';
-    await db.runInsert(sql, data.values.toList());
+    
+    String conflictClause = '';
+    if (conflictAlgorithm != null && conflictAlgorithm == ConflictAlgorithm.replace) {
+      conflictClause = 'OR REPLACE';
+    }
+
+    final sql = 'INSERT $conflictClause INTO $table ($columns) VALUES ($placeholders)';
+    return await db.runInsert(sql, data.values.toList());
   }
 
   @override
-  Future<void> updateGeneric(String table, Map<String, dynamic> data,
-      String where, List<dynamic> whereArgs,
-      {dynamic transaction}) async {
+  Future<int> update({
+    required String table,
+    required Map<String, dynamic> data,
+    String? where,
+    List<dynamic>? whereArgs,
+    dynamic transaction,
+  }) async {
     final db = transaction?.executor ?? _db.executor;
     final setClause = data.keys.map((key) => '$key = ?').join(', ');
-    final sql = 'UPDATE $table SET $setClause WHERE $where';
-    final args = [...data.values, ...whereArgs];
-    await db.runUpdate(sql, args);
+    final sql = 'UPDATE $table SET $setClause${where != null ? ' WHERE $where' : ''}';
+    final args = [...data.values, ...(whereArgs ?? [])];
+    return await db.runUpdate(sql, args);
   }
 
   @override
-  Future<void> deleteGeneric(
-      String table, String where, List<dynamic> whereArgs,
-      {dynamic transaction}) async {
+  Future<int> delete({
+    required String table,
+    String? where,
+    List<dynamic>? whereArgs,
+    dynamic transaction,
+  }) async {
     final db = transaction?.executor ?? _db.executor;
-    final sql = 'DELETE FROM $table WHERE $where';
-    await db.runDelete(sql, whereArgs);
+    final sql = 'DELETE FROM $table${where != null ? ' WHERE $where' : ''}';
+    return await db.runDelete(sql, whereArgs ?? []);
   }
 
   @override
-  Future<List<Map<String, dynamic>>> queryGeneric(String table,
-      {List<String>? columns,
-      String? where,
-      List? whereArgs,
-      String? orderBy,
-      int? limit}) async {
+  Future<List<Map<String, dynamic>>> query({
+    required String table,
+    List<String>? columns,
+    String? where,
+    List? whereArgs,
+    String? orderBy,
+    int? limit,
+  }) async {
     final columnsClause = columns?.join(', ') ?? '*';
     var sql = 'SELECT $columnsClause FROM $table';
     if (where != null) {
@@ -233,3 +253,7 @@ class DatabaseAdapterImpl extends DatabaseAdapter {
     return result;
   }
 }
+
+final databaseAdapterProvider = Provider<DatabaseAdapter>((ref) {
+  return DatabaseAdapterImpl();
+});

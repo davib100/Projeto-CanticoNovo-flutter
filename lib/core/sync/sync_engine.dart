@@ -555,8 +555,8 @@ class SyncEngine {
       whereArgs.addAll(entityTypes);
     }
 
-    final results = await _db.queryGeneric(
-      'sync_log',
+    final results = await _db.query(
+      table: 'sync_log',
       where: whereConditions.join(' AND '),
       whereArgs: whereArgs,
       orderBy: 'priority DESC, created_at ASC',
@@ -680,8 +680,8 @@ class SyncEngine {
 
   /// Carrega última sincronização do banco
   Future<DateTime?> _loadLastSyncTime() async {
-    final result = await _db.queryGeneric(
-      'sync_metadata',
+    final result = await _db.query(
+      table: 'sync_metadata',
       columns: ['last_sync_time'],
       where: 'key = ?',
       whereArgs: ['global_last_sync'],
@@ -696,11 +696,14 @@ class SyncEngine {
 
   /// Salva timestamp da última sincronização
   Future<void> _saveLastSyncTime(DateTime timestamp) async {
-    await _db.insertGeneric('sync_metadata', {
-      'key': 'global_last_sync',
-      'last_sync_time': timestamp.toIso8601String(),
-      'updated_at': DateTime.now().toIso8601String(),
-    });
+    await _db.insert(
+        table: 'sync_metadata',
+        data: {
+          'key': 'global_last_sync',
+          'last_sync_time': timestamp.toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   /// Atualiza estado e notifica listeners
@@ -714,19 +717,23 @@ class SyncEngine {
   Future<void> _cleanupSyncedOperations() async {
     final cutoffDate = DateTime.now().subtract(_config.syncRetentionPeriod);
 
-    await _db.deleteGeneric('sync_log', 'status = ? AND synced_at < ?', [
-      'synced',
-      cutoffDate.toIso8601String(),
-    ]);
+    await _db.delete(
+      table: 'sync_log',
+      where: 'status = ? AND synced_at < ?',
+      whereArgs: [
+        'synced',
+        cutoffDate.toIso8601String(),
+      ],
+    );
   }
 
   /// Marca operação como sincronizada
   Future<void> _markOperationAsSynced(SyncOperation operation) async {
-    await _db.updateGeneric(
-      'sync_log',
-      {'status': 'synced', 'synced_at': DateTime.now().toIso8601String()},
-      'id = ?',
-      [operation.id],
+    await _db.update(
+      table: 'sync_log',
+      data: {'status': 'synced', 'synced_at': DateTime.now().toIso8601String()},
+      where: 'id = ?',
+      whereArgs: [operation.id],
     );
   }
 
@@ -735,8 +742,8 @@ class SyncEngine {
     String entityType,
     String entityId,
   ) async {
-    final results = await _db.queryGeneric(
-      entityType,
+    final results = await _db.query(
+      table: entityType,
       where: 'id = ?',
       whereArgs: [entityId],
       limit: 1,
@@ -755,17 +762,21 @@ class SyncEngine {
     switch (operation.operationType) {
       case 'insert':
       case 'update':
-        await _db.insertGeneric(operation.entityType, operation.data,
-            transaction: transaction);
+        await _db.insert(
+            table: operation.entityType,
+            data: operation.data,
+            transaction: transaction,
+            conflictAlgorithm: ConflictAlgorithm.replace);
         break;
       case 'delete':
-        await _db.deleteGeneric(
-            operation.entityType,
-            'id = ?',
-            [
-              operation.entityId,
-            ],
-            transaction: transaction);
+        await _db.delete(
+          table: operation.entityType,
+          where: 'id = ?',
+          whereArgs: [
+            operation.entityId,
+          ],
+          transaction: transaction,
+        );
         break;
     }
   }
@@ -774,7 +785,11 @@ class SyncEngine {
   Future<void> _applyResolution(ConflictResolution resolution) async {
     final data = resolution.resolvedData;
 
-    await _db.insertGeneric(data['entity_type'] as String, data);
+    await _db.insert(
+      table: data['entity_type'] as String,
+      data: data,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   /// Registra conflito no log
@@ -783,7 +798,7 @@ class SyncEngine {
     required ConflictResolutionStrategy strategy,
     required ConflictWinner winner,
   }) async {
-    await _db.insertGeneric('conflict_log', {
+    await _db.insert(table: 'conflict_log', data: {
       'entity_type': entityType,
       'strategy': strategy.name,
       'winner': winner.name,
@@ -793,7 +808,7 @@ class SyncEngine {
 
   /// Enfileira conflito para resolução manual
   Future<void> _queueForManualResolution(ConflictResolution resolution) async {
-    await _db.insertGeneric('manual_conflict_queue', {
+    await _db.insert(table: 'manual_conflict_queue', data: {
       'local_data': jsonEncode(resolution.context.localData),
       'server_data': jsonEncode(resolution.context.serverData),
       'status': 'pending',

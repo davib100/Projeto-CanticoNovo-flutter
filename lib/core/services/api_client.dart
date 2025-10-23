@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:myapp/core/security/token_manager.dart';
 import 'package:myapp/core/observability/observability_service.dart';
@@ -105,3 +106,13 @@ class ApiClient {
     _client.close();
   }
 }
+
+final apiClientProvider = Provider<ApiClient>((ref) {
+  const baseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'https://api.canticonovo.com');
+  return ApiClient(
+    baseUrl: baseUrl,
+    client: http.Client(),
+    tokenManager: ref.watch(tokenManagerProvider),
+    observabilityService: ref.watch(observabilityServiceProvider),
+  );
+});

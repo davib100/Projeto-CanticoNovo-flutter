@@ -3,6 +3,16 @@ import 'dart:async';
 
 import '../queue/queued_operation.dart';
 
+/// Enum para o algoritmo de conflito usado em operações de inserção.
+/// Adicionado para corresponder ao uso em `auth_local_datasource.dart`.
+enum ConflictAlgorithm {
+  rollback,
+  abort,
+  fail,
+  ignore,
+  replace,
+}
+
 /// Adapta a comunicação com o banco de dados, abstraindo a implementação subjacente.
 ///
 /// Esta classe define o contrato para todas as operações de banco de dados, incluindo:
@@ -42,9 +52,9 @@ abstract class DatabaseAdapter {
   /// Limpa todas as operações da fila.
   Future<void> clearAllOperations();
 
-  /// Executa uma query genérica.
-  Future<List<Map<String, dynamic>>> queryGeneric(
-    String table, {
+  /// Executa uma query.
+  Future<List<Map<String, dynamic>>> query({
+    required String table,
     List<String>? columns,
     String? where,
     List<dynamic>? whereArgs,
@@ -52,27 +62,28 @@ abstract class DatabaseAdapter {
     int? limit,
   });
 
-  /// Insere um registro genérico.
-  Future<void> insertGeneric(
-    String table,
-    Map<String, dynamic> data, {
+  /// Insere um registro. Retorna o ID do registro inserido.
+  Future<int> insert({
+    required String table,
+    required Map<String, dynamic> data,
+    ConflictAlgorithm? conflictAlgorithm,
     dynamic transaction,
   });
 
-  /// Atualiza um registro genérico.
-  Future<void> updateGeneric(
-    String table,
-    Map<String, dynamic> data,
-    String where,
-    List<dynamic> whereArgs, {
+  /// Atualiza registros. Retorna o número de linhas afetadas.
+  Future<int> update({
+    required String table,
+    required Map<String, dynamic> data,
+    String? where,
+    List<dynamic>? whereArgs,
     dynamic transaction,
   });
 
-  /// Deleta um registro genérico.
-  Future<void> deleteGeneric(
-    String table,
-    String where,
-    List<dynamic> whereArgs, {
+  /// Deleta registros. Retorna o número de linhas afetadas.
+  Future<int> delete({
+    required String table,
+    String? where,
+    List<dynamic>? whereArgs,
     dynamic transaction,
   });
 
