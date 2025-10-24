@@ -18,11 +18,13 @@
         "freezed_annotation",
         "get_it",
         "go_router",
+        "google_sign_in",
         "json_annotation",
         "mobx",
         "path",
         "path_provider",
         "riverpod_annotation",
+        "sentry_flutter",
         "share_plus",
         "sqflite",
         "sqlite3_flutter_libs",
@@ -40,6 +42,16 @@
         "riverpod_generator",
         "rxdart"
       ]
+    },
+    {
+      "name": "dartz",
+      "version": "0.10.1",
+      "dependencies": []
+    },
+    {
+      "name": "rxdart",
+      "version": "0.28.0",
+      "dependencies": []
     },
     {
       "name": "http",
@@ -197,6 +209,31 @@
         "web",
         "web_socket_channel",
         "yaml"
+      ]
+    },
+    {
+      "name": "google_sign_in",
+      "version": "7.2.0",
+      "dependencies": [
+        "flutter",
+        "google_sign_in_android",
+        "google_sign_in_ios",
+        "google_sign_in_platform_interface",
+        "google_sign_in_web"
+      ]
+    },
+    {
+      "name": "sentry_flutter",
+      "version": "8.14.2",
+      "dependencies": [
+        "collection",
+        "ffi",
+        "file",
+        "flutter",
+        "flutter_web_plugins",
+        "meta",
+        "package_info_plus",
+        "sentry"
       ]
     },
     {
@@ -909,12 +946,79 @@
       ]
     },
     {
-      "name": "provider",
-      "version": "6.1.5+1",
+      "name": "google_sign_in_web",
+      "version": "1.1.0",
+      "dependencies": [
+        "flutter",
+        "flutter_web_plugins",
+        "google_identity_services_web",
+        "google_sign_in_platform_interface",
+        "http",
+        "web"
+      ]
+    },
+    {
+      "name": "google_sign_in_platform_interface",
+      "version": "3.1.0",
+      "dependencies": [
+        "flutter",
+        "plugin_platform_interface"
+      ]
+    },
+    {
+      "name": "google_sign_in_ios",
+      "version": "6.2.2",
+      "dependencies": [
+        "flutter",
+        "google_sign_in_platform_interface"
+      ]
+    },
+    {
+      "name": "google_sign_in_android",
+      "version": "7.2.2",
+      "dependencies": [
+        "flutter",
+        "google_sign_in_platform_interface"
+      ]
+    },
+    {
+      "name": "file",
+      "version": "7.0.1",
+      "dependencies": [
+        "meta",
+        "path"
+      ]
+    },
+    {
+      "name": "ffi",
+      "version": "2.1.4",
+      "dependencies": []
+    },
+    {
+      "name": "package_info_plus",
+      "version": "9.0.0",
+      "dependencies": [
+        "clock",
+        "ffi",
+        "flutter",
+        "flutter_web_plugins",
+        "http",
+        "meta",
+        "package_info_plus_platform_interface",
+        "path",
+        "web",
+        "win32"
+      ]
+    },
+    {
+      "name": "sentry",
+      "version": "8.14.2",
       "dependencies": [
         "collection",
-        "flutter",
-        "nested"
+        "http",
+        "meta",
+        "stack_trace",
+        "uuid"
       ]
     },
     {
@@ -922,6 +1026,15 @@
       "version": "0.0.0",
       "dependencies": [
         "flutter"
+      ]
+    },
+    {
+      "name": "provider",
+      "version": "6.1.5+1",
+      "dependencies": [
+        "collection",
+        "flutter",
+        "nested"
       ]
     },
     {
@@ -1036,11 +1149,6 @@
       ]
     },
     {
-      "name": "ffi",
-      "version": "2.1.4",
-      "dependencies": []
-    },
-    {
       "name": "url_launcher_platform_interface",
       "version": "2.3.2",
       "dependencies": [
@@ -1072,14 +1180,6 @@
         "flutter_web_plugins",
         "url_launcher_platform_interface",
         "web"
-      ]
-    },
-    {
-      "name": "file",
-      "version": "7.0.1",
-      "dependencies": [
-        "meta",
-        "path"
       ]
     },
     {
@@ -1292,10 +1392,11 @@
       ]
     },
     {
-      "name": "nested",
-      "version": "1.0.0",
+      "name": "google_identity_services_web",
+      "version": "0.3.3+1",
       "dependencies": [
-        "flutter"
+        "meta",
+        "web"
       ]
     },
     {
@@ -1303,6 +1404,22 @@
       "version": "2.1.8",
       "dependencies": [
         "meta"
+      ]
+    },
+    {
+      "name": "package_info_plus_platform_interface",
+      "version": "3.2.1",
+      "dependencies": [
+        "flutter",
+        "meta",
+        "plugin_platform_interface"
+      ]
+    },
+    {
+      "name": "nested",
+      "version": "1.0.0",
+      "dependencies": [
+        "flutter"
       ]
     },
     {
@@ -1341,16 +1458,6 @@
         "pub_semver",
         "yaml"
       ]
-    },
-    {
-      "name": "dartz",
-      "version": "0.10.1",
-      "dependencies": []
-    },
-    {
-      "name": "rxdart",
-      "version": "0.28.0",
-      "dependencies": []
     }
   ],
   "configVersion": 1

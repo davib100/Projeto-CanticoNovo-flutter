@@ -1,11 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dartz/dartz.dart';
-import 'package:cantico_novo/core/observability/logger.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
+import '../../../core/observability/observability_service.dart';
+import '../../auth/usecases/logout_usecase.dart';
 import '../../../shared/entities/user_entity.dart';
 import '../usecases/login_usecase.dart';
 import '../usecases/register_usecase.dart';
-import '../usecases/logout_usecase.dart';
 import '../usecases/reset_password_usecase.dart';
+import '../repositories/auth_repository_impl.dart';
+import '../../../core/security/auth_service.dart';
+import '../../../core/db/database_adapter_impl.dart';
+import '../../../core/services/api_client.dart';
+import '../../../core/security/token_manager.dart';
 
 // State
 class AuthState {
@@ -26,12 +32,13 @@ class AuthState {
     bool? isLoading,
     bool? isAuthenticated,
     String? error,
+    bool clearError = false,
   }) {
     return AuthState(
       user: user ?? this.user,
       isLoading: isLoading ?? this.isLoading,
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
-      error: error,
+      error: clearError ? null : error ?? this.error,
     );
   }
 }
@@ -42,319 +49,167 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final RegisterUseCase _registerUseCase;
   final LogoutUseCase _logoutUseCase;
   final ResetPasswordUseCase _resetPasswordUseCase;
-  final Logger _logger;
+  final ObservabilityService _observability;
 
   AuthNotifier(
     this._loginUseCase,
     this._registerUseCase,
     this._logoutUseCase,
     this._resetPasswordUseCase,
-    this._logger,
-  ) : super(const AuthState()) {
-    _checkSession();
-  }
+  )   : _observability = ObservabilityService(),
+        super(const AuthState());
 
-  Future<void> _checkSession() async {
-    state = state.copyWith(isLoading: true);
-
-    try {
-      // Verificar se há sessão válida
-      final result = await _loginUseCase.checkSession();
-
-      result.fold(
-        (error) {
-          state = state.copyWith(isLoading: false, isAuthenticated: false);
-        },
-        (user) {
-          state = state.copyWith(
-            user: user,
-            isLoading: false,
-            isAuthenticated: true,
-          );
-
-          _logger.log(
-            level: LogLevel.info,
-            message: 'Session restored for user: ${user.email}',
-            module: 'AuthModule',
-          );
-        },
-      );
-    } catch (e) {
-      state = state.copyWith(isLoading: false, isAuthenticated: false);
-    }
-  }
-
-  Future<Either<String, UserEntity>> login({
-    required String email,
-    required String password,
-    bool rememberMe = false,
-  }) async {
-    state = state.copyWith(isLoading: true, error: null);
-
-    _logger.log(
-      level: LogLevel.info,
-      message: 'Login attempt for email: $email',
-      module: 'AuthModule',
+  Future<void> login(String email, String password) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    final result = await _loginUseCase(email: email, password: password);
+    result.fold(
+      (failure) {
+        _observability.addBreadcrumb(
+          'Login failed',
+          category: 'auth',
+          level: SentryLevel.error,
+          data: {'email': email, 'error': failure.toString()},
+        );
+        state = state.copyWith(isLoading: false, error: failure.toString());
+      },
+      (user) {
+        final loggedUser = user as UserEntity;
+        _observability.addBreadcrumb(
+          'Login successful',
+          category: 'auth',
+          level: SentryLevel.info,
+          data: {'userId': loggedUser.id},
+        );
+        state = state.copyWith(isLoading: false, user: loggedUser, isAuthenticated: true);
+      },
     );
-
-    try {
-      final result = await _loginUseCase(
-        email: email,
-        password: password,
-        rememberMe: rememberMe,
-      );
-
-      return result.fold(
-        (error) {
-          state = state.copyWith(isLoading: false, error: error);
-
-          _logger.log(
-            level: LogLevel.error,
-            message: 'Login failed: $error',
-            module: 'AuthModule',
-          );
-
-          return Left(error);
-        },
-        (user) {
-          state = state.copyWith(
-            user: user,
-            isLoading: false,
-            isAuthenticated: true,
-          );
-
-          _logger.log(
-            level: LogLevel.info,
-            message: 'Login successful for user: ${user.email}',
-            module: 'AuthModule',
-            metadata: {'userId': user.id, 'deviceId': user.deviceId},
-          );
-
-          return Right(user);
-        },
-      );
-    } catch (e) {
-      final errorMessage = 'Erro inesperado ao fazer login';
-      state = state.copyWith(isLoading: false, error: errorMessage);
-
-      _logger.log(
-        level: LogLevel.error,
-        message: 'Login exception: $e',
-        module: 'AuthModule',
-      );
-
-      return Left(errorMessage);
-    }
   }
 
-  Future<Either<String, UserEntity>> loginWithGoogle() async {
-    state = state.copyWith(isLoading: true, error: null);
-
-    _logger.log(
-      level: LogLevel.info,
-      message: 'Google OAuth login attempt',
-      module: 'AuthModule',
+  Future<void> register(String fullName, String email, String password) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    final result = await _registerUseCase(
+        fullName: fullName, email: email, password: password);
+    result.fold(
+      (failure) {
+        _observability.addBreadcrumb(
+          'Registration failed',
+          category: 'auth',
+          level: SentryLevel.error,
+          data: {'email': email, 'error': failure.toString()},
+        );
+        state = state.copyWith(isLoading: false, error: failure.toString());
+      },
+      (user) {
+        final registeredUser = user as UserEntity;
+        _observability.addBreadcrumb(
+          'Registration successful',
+          category: 'auth',
+          level: SentryLevel.info,
+          data: {'userId': registeredUser.id},
+        );
+        state = state.copyWith(isLoading: false, user: registeredUser, isAuthenticated: true);
+      },
     );
-
-    try {
-      final result = await _loginUseCase.loginWithGoogle();
-
-      return result.fold(
-        (error) {
-          state = state.copyWith(isLoading: false, error: error);
-
-          _logger.log(
-            level: LogLevel.error,
-            message: 'Google login failed: $error',
-            module: 'AuthModule',
-          );
-
-          return Left(error);
-        },
-        (user) {
-          state = state.copyWith(
-            user: user,
-            isLoading: false,
-            isAuthenticated: true,
-          );
-
-          _logger.log(
-            level: LogLevel.info,
-            message: 'Google login successful for user: ${user.email}',
-            module: 'AuthModule',
-          );
-
-          return Right(user);
-        },
-      );
-    } catch (e) {
-      final errorMessage = 'Erro ao fazer login com Google';
-      state = state.copyWith(isLoading: false, error: errorMessage);
-
-      _logger.log(
-        level: LogLevel.error,
-        message: 'Google login exception: $e',
-        module: 'AuthModule',
-      );
-
-      return Left(errorMessage);
-    }
-  }
-
-  Future<Either<String, UserEntity>> register({
-    required String fullName,
-    required String email,
-    required String password,
-  }) async {
-    state = state.copyWith(isLoading: true, error: null);
-
-    _logger.log(
-      level: LogLevel.info,
-      message: 'Registration attempt for email: $email',
-      module: 'AuthModule',
-    );
-
-    try {
-      final result = await _registerUseCase(
-        fullName: fullName,
-        email: email,
-        password: password,
-      );
-
-      return result.fold(
-        (error) {
-          state = state.copyWith(isLoading: false, error: error);
-
-          _logger.log(
-            level: LogLevel.error,
-            message: 'Registration failed: $error',
-            module: 'AuthModule',
-          );
-
-          return Left(error);
-        },
-        (user) {
-          state = state.copyWith(
-            user: user,
-            isLoading: false,
-            isAuthenticated: true,
-          );
-
-          _logger.log(
-            level: LogLevel.info,
-            message: 'Registration successful for user: ${user.email}',
-            module: 'AuthModule',
-            metadata: {'userId': user.id},
-          );
-
-          return Right(user);
-        },
-      );
-    } catch (e) {
-      final errorMessage = 'Erro inesperado ao criar conta';
-      state = state.copyWith(isLoading: false, error: errorMessage);
-
-      _logger.log(
-        level: LogLevel.error,
-        message: 'Registration exception: $e',
-        module: 'AuthModule',
-      );
-
-      return Left(errorMessage);
-    }
-  }
-
-  Future<Either<String, void>> resetPassword({required String email}) async {
-    state = state.copyWith(isLoading: true, error: null);
-
-    _logger.log(
-      level: LogLevel.info,
-      message: 'Password reset attempt for email: $email',
-      module: 'AuthModule',
-    );
-
-    try {
-      final result = await _resetPasswordUseCase(email: email);
-
-      state = state.copyWith(isLoading: false);
-
-      result.fold(
-        (error) {
-          _logger.log(
-            level: LogLevel.error,
-            message: 'Password reset failed: $error',
-            module: 'AuthModule',
-          );
-        },
-        (_) {
-          _logger.log(
-            level: LogLevel.info,
-            message: 'Password reset email sent to: $email',
-            module: 'AuthModule',
-          );
-        },
-      );
-
-      return result;
-    } catch (e) {
-      final errorMessage = 'Erro ao enviar email de redefinição';
-      state = state.copyWith(isLoading: false, error: errorMessage);
-
-      _logger.log(
-        level: LogLevel.error,
-        message: 'Password reset exception: $e',
-        module: 'AuthModule',
-      );
-
-      return Left(errorMessage);
-    }
   }
 
   Future<void> logout() async {
-    _logger.log(
-      level: LogLevel.info,
-      message: 'Logout initiated for user: ${state.user?.email}',
-      module: 'AuthModule',
-    );
+    state = state.copyWith(isLoading: true);
+    try {
+      await _logoutUseCase();
+      _observability.addBreadcrumb(
+        'Logout successful',
+        category: 'auth',
+        level: SentryLevel.info,
+        data: {'userId': state.user?.id},
+      );
+      state = const AuthState(); // Reset state to initial
+    } catch (failure, stackTrace) {
+      _observability.addBreadcrumb(
+        'Logout failed',
+        category: 'auth',
+        level: SentryLevel.error,
+        data: {'userId': state.user?.id, 'error': failure.toString()},
+      );
+       _observability.captureException(
+        failure,
+        stackTrace: stackTrace,
+        endpoint: 'logout',
+      );
+      state = state.copyWith(isLoading: false, error: failure.toString());
+    }
+  }
 
-    await _logoutUseCase();
-
-    state = const AuthState();
-
-    _logger.log(
-      level: LogLevel.info,
-      message: 'Logout completed',
-      module: 'AuthModule',
+  Future<void> resetPassword(String email) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    final result = await _resetPasswordUseCase(email: email);
+    result.fold(
+      (failure) {
+        _observability.addBreadcrumb(
+          'Password reset failed',
+          category: 'auth',
+          level: SentryLevel.error,
+          data: {'email': email, 'error': failure.toString()},
+        );
+        state = state.copyWith(isLoading: false, error: failure.toString());
+      },
+      (_) {
+        _observability.addBreadcrumb(
+          'Password reset request successful',
+          category: 'auth',
+          level: SentryLevel.info,
+          data: {'email': email},
+        );
+        state = state.copyWith(isLoading: false);
+      },
     );
   }
 }
 
-// Provider
-final authStateProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  return AuthNotifier(
-    ref.watch(loginUseCaseProvider),
-    ref.watch(registerUseCaseProvider),
-    ref.watch(logoutUseCaseProvider),
-    ref.watch(resetPasswordUseCaseProvider),
-    Logger.instance,
+// Providers
+final authRepositoryProvider = Provider<AuthRepositoryImpl>((ref) {
+  final dbAdapter = ref.watch(databaseAdapterProvider);
+  final apiClient = ref.watch(httpServiceProvider);
+  final tokenManager = ref.watch(tokenManagerProvider);
+  final authService = ref.watch(authServiceProvider);
+
+  return AuthRepositoryImpl(
+    remoteDataSource: AuthRemoteDataSource(apiClient),
+    localDataSource: AuthLocalDataSource(dbAdapter),
+    authService: authService,
+    tokenManager: tokenManager,
   );
 });
 
-enum CustomAuthProvider {
-  google,
-  facebook,
-  apple,
-  // Adicione os que precisar
-}
+final loginUseCaseProvider = Provider<LoginUseCase>((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return LoginUseCase(repository);
+});
 
-extension AuthProviderExtension on AuthProvider {
-  String get name {
-    switch (this) {
-      case AuthProvider.google:
-        return 'google';
-      case AuthProvider.apple:
-        return 'apple';
-    }
-  }
-}
+final registerUseCaseProvider = Provider<RegisterUseCase>((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return RegisterUseCase(repository);
+});
 
+final logoutUseCaseProvider = Provider<LogoutUseCase>((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return LogoutUseCase(repository);
+});
+
+final resetPasswordUseCaseProvider = Provider<ResetPasswordUseCase>((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return ResetPasswordUseCase(repository);
+});
+
+final authStateProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+  final loginUseCase = ref.watch(loginUseCaseProvider);
+  final registerUseCase = ref.watch(registerUseCaseProvider);
+  final logoutUseCase = ref.watch(logoutUseCaseProvider);
+  final resetPasswordUseCase = ref.watch(resetPasswordUseCaseProvider);
+  return AuthNotifier(loginUseCase, registerUseCase, logoutUseCase, resetPasswordUseCase);
+});
+
+// Dependent providers that should already exist in your project
+final databaseAdapterProvider = Provider<DatabaseAdapterImpl>((ref) => throw UnimplementedError());
+final httpServiceProvider = Provider<ApiClient>((ref) => throw UnimplementedError());
+final tokenManagerProvider = Provider<TokenManager>((ref) => throw UnimplementedError());
+final authServiceProvider = Provider<AuthService>((ref) => throw UnimplementedError());

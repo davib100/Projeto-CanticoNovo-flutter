@@ -1,5 +1,7 @@
 
-class UserEntity {
+import 'package:equatable/equatable.dart';
+
+class UserEntity extends Equatable {
   final String id;
   final String fullName;
   final String email;
@@ -18,23 +20,14 @@ class UserEntity {
     this.lastLoginAt,
   });
 
-  UserEntity copyWith({
-    String? id,
-    String? fullName,
-    String? email,
-    String? photoUrl,
-    String? deviceId,
-    DateTime? createdAt,
-    DateTime? lastLoginAt,
-  }) {
-    return UserEntity(
-      id: id ?? this.id,
-      fullName: fullName ?? this.fullName,
-      email: email ?? this.email,
-      photoUrl: photoUrl ?? this.photoUrl,
-      deviceId: deviceId ?? this.deviceId,
-      createdAt: createdAt ?? this.createdAt,
-      lastLoginAt: lastLoginAt ?? this.lastLoginAt,
-    );
-  }
+  @override
+  List<Object?> get props => [
+        id,
+        fullName,
+        email,
+        photoUrl,
+        deviceId,
+        createdAt,
+        lastLoginAt,
+      ];
 }

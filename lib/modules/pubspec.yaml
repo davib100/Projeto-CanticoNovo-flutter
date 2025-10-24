@@ -64,6 +64,8 @@ dependencies:
   mobx: ^2.5.0
   flutter_mobx: ^2.3.0
   get_it: ^8.2.0
+  sentry_flutter: ^8.5.0
+  google_sign_in: ^7.2.0
   
 
 dev_dependencies:

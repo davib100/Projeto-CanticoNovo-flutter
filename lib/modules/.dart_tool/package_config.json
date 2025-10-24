@@ -338,6 +338,42 @@
       "languageVersion": "3.4"
     },
     {
+      "name": "google_identity_services_web",
+      "rootUri": "file:///home/user/.pub-cache/hosted/pub.dev/google_identity_services_web-0.3.3+1",
+      "packageUri": "lib/",
+      "languageVersion": "3.4"
+    },
+    {
+      "name": "google_sign_in",
+      "rootUri": "file:///home/user/.pub-cache/hosted/pub.dev/google_sign_in-7.2.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.7"
+    },
+    {
+      "name": "google_sign_in_android",
+      "rootUri": "file:///home/user/.pub-cache/hosted/pub.dev/google_sign_in_android-7.2.2",
+      "packageUri": "lib/",
+      "languageVersion": "3.9"
+    },
+    {
+      "name": "google_sign_in_ios",
+      "rootUri": "file:///home/user/.pub-cache/hosted/pub.dev/google_sign_in_ios-6.2.2",
+      "packageUri": "lib/",
+      "languageVersion": "3.9"
+    },
+    {
+      "name": "google_sign_in_platform_interface",
+      "rootUri": "file:///home/user/.pub-cache/hosted/pub.dev/google_sign_in_platform_interface-3.1.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.7"
+    },
+    {
+      "name": "google_sign_in_web",
+      "rootUri": "file:///home/user/.pub-cache/hosted/pub.dev/google_sign_in_web-1.1.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.7"
+    },
+    {
       "name": "graphs",
       "rootUri": "file:///home/user/.pub-cache/hosted/pub.dev/graphs-2.3.2",
       "packageUri": "lib/",
@@ -458,6 +494,18 @@
       "languageVersion": "3.4"
     },
     {
+      "name": "package_info_plus",
+      "rootUri": "file:///home/user/.pub-cache/hosted/pub.dev/package_info_plus-9.0.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.3"
+    },
+    {
+      "name": "package_info_plus_platform_interface",
+      "rootUri": "file:///home/user/.pub-cache/hosted/pub.dev/package_info_plus_platform_interface-3.2.1",
+      "packageUri": "lib/",
+      "languageVersion": "2.18"
+    },
+    {
       "name": "path",
       "rootUri": "file:///home/user/.pub-cache/hosted/pub.dev/path-1.9.1",
       "packageUri": "lib/",
@@ -570,6 +618,18 @@
       "rootUri": "file:///home/user/.pub-cache/hosted/pub.dev/rxdart-0.28.0",
       "packageUri": "lib/",
       "languageVersion": "2.12"
+    },
+    {
+      "name": "sentry",
+      "rootUri": "file:///home/user/.pub-cache/hosted/pub.dev/sentry-8.14.2",
+      "packageUri": "lib/",
+      "languageVersion": "2.17"
+    },
+    {
+      "name": "sentry_flutter",
+      "rootUri": "file:///home/user/.pub-cache/hosted/pub.dev/sentry_flutter-8.14.2",
+      "packageUri": "lib/",
+      "languageVersion": "2.17"
     },
     {
       "name": "share_plus",

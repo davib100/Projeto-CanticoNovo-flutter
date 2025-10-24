@@ -3,6 +3,7 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pubspec.lock
 
 # Environment variables
 .env
@@ -45,3 +46,11 @@ tmp/
 # Backend
 backend/node_modules/
 backend/package-lock.json
+
+lib/modules/.dart_tool
+lib/modules/pubspec.lock
+
+.flutter-plugins-dependencies
+lib/modules/.flutter-plugins-dependencies
+lib/modules/.dart_tool/package_config.json
+lib/modules/.dart_tool/package_graph.json

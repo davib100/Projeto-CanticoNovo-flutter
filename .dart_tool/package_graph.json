@@ -19,6 +19,7 @@
         "device_info_plus",
         "dio",
         "drift",
+        "equatable",
         "firebase_auth",
         "firebase_core",
         "flutter",
@@ -185,6 +186,14 @@
         "stream_channel",
         "test_api",
         "vector_math"
+      ]
+    },
+    {
+      "name": "equatable",
+      "version": "2.0.7",
+      "dependencies": [
+        "collection",
+        "meta"
       ]
     },
     {
@@ -1037,6 +1046,15 @@
       ]
     },
     {
+      "name": "dio_web_adapter",
+      "version": "1.1.1",
+      "dependencies": [
+        "dio",
+        "http_parser",
+        "meta"
+      ]
+    },
+    {
       "name": "http_parser",
       "version": "4.1.2",
       "dependencies": [
@@ -1591,15 +1609,6 @@
       "version": "7.0.1",
       "dependencies": [
         "collection",
-        "meta"
-      ]
-    },
-    {
-      "name": "dio_web_adapter",
-      "version": "1.1.1",
-      "dependencies": [
-        "dio",
-        "http_parser",
         "meta"
       ]
     }

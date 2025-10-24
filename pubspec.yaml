@@ -13,7 +13,7 @@ dependencies:
   # Core & Firebase
   firebase_core: ^2.27.0
   firebase_auth: ^4.17.8
-  google_sign_in: ^6.2.1
+  google_sign_in: ^6.2.2
   sentry_flutter: ^8.14.2
 
   # State Management
@@ -63,6 +63,7 @@ dependencies:
   dartz: ^0.10.1
   logger: ^2.6.2
   animations: ^2.1.0
+  equatable: ^2.0.7
 
 
 dev_dependencies:

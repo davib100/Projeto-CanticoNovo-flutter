@@ -1,8 +1,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cantico_novo/shared/widgets/loading_overlay.dart';
-import 'package:cantico_novo/shared/utils/validators.dart';
+import 'package:myapp/shared/widgets/loading_overlay.dart';
+import 'package:myapp/shared/utils/validators.dart';
 import '../widgets/auth_header.dart';
 import '../widgets/auth_text_field.dart';
 import '../providers/auth_provider.dart';

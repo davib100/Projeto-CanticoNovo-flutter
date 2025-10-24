@@ -1,24 +1,16 @@
 
-import '../../domain/entities/user_entity.dart';
+import 'package:myapp/shared/entities/user_entity.dart';
 
 class UserModel extends UserEntity {
   const UserModel({
-    required String id,
-    required String fullName,
-    required String email,
-    String? photoUrl,
-    required String deviceId,
-    required DateTime createdAt,
-    DateTime? lastLoginAt,
-  }) : super(
-          id: id,
-          fullName: fullName,
-          email: email,
-          photoUrl: photoUrl,
-          deviceId: deviceId,
-          createdAt: createdAt,
-          lastLoginAt: lastLoginAt,
-        );
+    required super.id,
+    required super.fullName,
+    required super.email,
+    super.photoUrl,
+    required super.deviceId,
+    required super.createdAt,
+    super.lastLoginAt,
+  });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
@@ -55,6 +47,18 @@ class UserModel extends UserEntity {
       deviceId: entity.deviceId,
       createdAt: entity.createdAt,
       lastLoginAt: entity.lastLoginAt,
+    );
+  }
+
+  UserEntity toEntity() {
+    return UserEntity(
+      id: id,
+      fullName: fullName,
+      email: email,
+      photoUrl: photoUrl,
+      deviceId: deviceId,
+      createdAt: createdAt,
+      lastLoginAt: lastLoginAt,
     );
   }
 }
