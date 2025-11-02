@@ -1,12 +1,12 @@
+import '../../../shared/entities/user_entity.dart';
 import '../../../shared/models/session_model.dart';
-import '../../../shared/models/user_model.dart';
 
 abstract class AuthLocalDataSource {
-  Future<void> saveUser(UserModel user);
+  Future<void> saveUser(UserEntity user);
 
   Future<void> saveSession(SessionModel session);
 
-  Future<UserModel?> getUser();
+  Future<UserEntity?> getUser();
 
   Future<SessionModel?> getSession();
 

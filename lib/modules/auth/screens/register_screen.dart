@@ -1,15 +1,16 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:myapp/shared/widgets/loading_overlay.dart';
-import 'package:myapp/shared/utils/validators.dart';
+import '../../../shared/widgets/loading_overlay.dart';
+import '../../../shared/utils/validators.dart';
+import '../../analytics/analytics_provider.dart';
 import '../widgets/auth_header.dart';
 import '../widgets/auth_text_field.dart';
-import '../widgets/password_strength_indicator.dart';
+import '../widgets/password_Strength_indicator.dart';
 import '../providers/auth_provider.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
-  const RegisterScreen({Key? key}) : super(key: key);
+  const RegisterScreen({super.key});
 
   @override
   ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
@@ -64,9 +65,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final password = _passwordController.text;
 
     final result = await ref.read(authStateProvider.notifier).register(
-      fullName: fullName,
-      email: email,
-      password: password,
+       fullName,
+       email,
+       password,
     );
 
     if (!mounted) return;
@@ -75,13 +76,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       (error) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(error),
+            content: Text(error.toString()),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
           ),
         );
       },
       (user) {
+        ref.read(analyticsServiceProvider).logSignUp(signUpMethod: 'email');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Conta criada com sucesso!'),
@@ -361,9 +363,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                   ),
                                 ),
                               )
-                            : Row(
+                            : const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
-                                children: const [
+                                children: [
                                   Text(
                                     'Criar conta',
                                     style: TextStyle(

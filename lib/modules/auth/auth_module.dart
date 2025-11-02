@@ -1,25 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:myapp/core/app_module.dart';
-import 'package:myapp/core/db/database_adapter.dart';
-import 'package:myapp/core/services/http_service.dart';
-import 'package:myapp/core/security/token_manager.dart';
-import 'package:myapp/core/observability/observability_service.dart';
-import 'package:myapp/modules/auth/core/module_exception.dart';
-import 'package:myapp/modules/auth/routing/route_guard.dart';
+//import '../../core/app_orchestrator.dart';
+//import '../../core/db/database_adapter.dart';
+//import '../../core/services/api_client.dart';
+import '../../core/security/token_manager.dart';
+import '../../core/observability/observability_service.dart';
+import './core/module_exception.dart';
+//import './routing/route_guard.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
-import 'package:myapp/modules/auth/screens/login_screen.dart';
-import 'package:myapp/modules/auth/screens/register_screen.dart';
-import 'package:myapp/modules/auth/screens/reset_password.dart';
-import 'package:myapp/modules/auth/datasource/auth_remote_datasource.dart';
-import 'package:myapp/modules/auth/datasource/auth_local_datasource.dart';
-import 'package:myapp/modules/auth/repositories/auth_repository_impl.dart';
-import 'package:myapp/modules/auth/usecases/login_usecase.dart';
-import 'package:myapp/modules/auth/usecases/register_usecase.dart';
-import 'package:myapp/modules/auth/usecases/logout_usecase.dart';
-import 'package:myapp/modules/auth/usecases/reset_password_usecase.dart';
-import 'package:myapp/modules/auth/providers/auth_provider.dart';
+import './screens/login_screen.dart';
+import './screens/register_screen.dart';
+import './screens/reset_password.dart';
+import './datasource/auth_remote_datasource.dart';
+//import './datasource/auth_local_datasource.dart';
+//import './repositories/auth_repository_impl.dart';
+import './usecases/login_usecase.dart';
+import './usecases/register_usecase.dart';
+import './usecases/logout_usecase.dart';
+import './usecases/reset_password_usecase.dart';
+import './providers/auth_provider.dart' hide tokenManagerProvider, authRemoteDataSourceProvider, loginUseCaseProvider,
+registerUseCaseProvider, resetPasswordUseCaseProvider;
 
 /// Configurações do módulo de autenticação
 class AuthModuleConfig {
@@ -132,7 +133,7 @@ class AuthModule extends BaseModule {
           ref.read(provider);
         } catch (e) {
           throw ModuleException(
-            'Required dependency not available: \${provider.name ?? 'unknown'}',
+            'Required dependency not available: \${provider.name ?? "unknown"}',
             module: moduleName,
           );
         }
@@ -277,14 +278,15 @@ class AuthModule extends BaseModule {
     
     try {
       // Verificar se providers estão funcionais
-      final authState = ref.read(authStateProvider);
+      ref.read(authStateProvider);
       
       // Verificar conexão com datasources
       final localDataSource = ref.read(authLocalDataSourceProvider);
+      // ignore: unused_local_variable
       final hasValidSession = await localDataSource.hasValidSession();
       
       _log(
-        'Health check passed (Session: \${hasValidSession ? 'Valid' : 'Invalid'})',
+        'Health check passed (Session: \${hasValidSession ? "Valid" : "Invalid"})',
         LogStatus.success,
       );
       
@@ -412,7 +414,7 @@ class AuthModule extends BaseModule {
     
     try {
       // Limpar providers se necessário (Riverpod já gerencia com autoDispose)
-      _log('AuthModule disposed', Log.success);
+      _log('AuthModule disposed', LogStatus.success);
     } catch (e, stackTrace) {
       _observability.captureException(
         e,
@@ -448,7 +450,7 @@ class AuthModule extends BaseModule {
 final authModuleProvider = Provider<AuthModule>((ref) {
   final config = ref.watch(authModuleConfigProvider);
   final module = AuthModule(config: config);
-  module.initialize(ref);
+  module.initialize(ref as WidgetRef);
   return module;
 });
 

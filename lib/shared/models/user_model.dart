@@ -61,4 +61,24 @@ class UserModel extends UserEntity {
       lastLoginAt: lastLoginAt,
     );
   }
+
+  UserModel copyWith({
+    String? id,
+    String? fullName,
+    String? email,
+    String? photoUrl,
+    String? deviceId,
+    DateTime? createdAt,
+    DateTime? lastLoginAt,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      fullName: fullName ?? this.fullName,
+      email: email ?? this.email,
+      photoUrl: photoUrl ?? this.photoUrl,
+      deviceId: deviceId ?? this.deviceId,
+      createdAt: createdAt ?? this.createdAt,
+      lastLoginAt: lastLoginAt ?? this.lastLoginAt,
+    );
+  }
 }

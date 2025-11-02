@@ -1,0 +1,52 @@
+
+/// Base class for all authentication-related exceptions.
+abstract class AuthException implements Exception {
+  final String message;
+  final StackTrace? stackTrace;
+
+  const AuthException(this.message, [this.stackTrace]);
+
+  @override
+  String toString() => 'AuthException: $message';
+}
+
+/// Thrown when login fails due to incorrect credentials.
+class InvalidCredentialsException extends AuthException {
+  const InvalidCredentialsException([String message = 'Email ou senha incorretos.']) : super(message);
+}
+
+/// Thrown when a user is not found in the database.
+class UserNotFoundException extends AuthException {
+  const UserNotFoundException([String message = 'Usuário não encontrado.']) : super(message);
+}
+
+/// Thrown during registration if the user already exists.
+class UserAlreadyExistsException extends AuthException {
+  const UserAlreadyExistsException([String message = 'Este email já está em uso.']) : super(message);
+}
+
+/// Thrown for network-related errors during authentication.
+class NetworkException extends AuthException {
+  const NetworkException([String message = 'Erro de conexão. Verifique sua internet.']) : super(message);
+}
+
+/// Thrown when an operation is attempted with an expired session.
+class SessionExpiredException extends AuthException {
+  const SessionExpiredException([String message = 'Sua sessão expirou. Faça login novamente.']) : super(message);
+}
+
+/// Thrown when rate limiting is exceeded.
+class TooManyRequestsException extends AuthException {
+  final Duration retryAfter;
+  const TooManyRequestsException(this.retryAfter) : super('Muitas tentativas. Tente novamente mais tarde.');
+}
+
+/// Thrown for general validation errors on input.
+class InvalidInputException extends AuthException {
+  const InvalidInputException(String message) : super(message);
+}
+
+/// Thrown when an OAuth sign-in process is cancelled by the user.
+class OperationCancelledException extends AuthException {
+  const OperationCancelledException([String message = 'Operação cancelada pelo usuário.']) : super(message);
+}

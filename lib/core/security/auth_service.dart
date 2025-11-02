@@ -33,8 +33,26 @@ class AuthService {
     }
   }
 
+  Future<String?> signInWithGoogle() async {
+    final googleUser = await _googleSignIn.signIn();
+    if (googleUser == null) {
+      // User canceled the sign-in
+      return null;
+    }
+    final googleAuth = await googleUser.authentication;
+    return googleAuth.idToken;
+  }
+
+
   Future<void> logout() async {
     await _tokenManager.deleteTokens();
-    await _googleSignIn.signOut();
+    // Also sign out from Google
+    if (await _googleSignIn.isSignedIn()) {
+      await _googleSignIn.signOut();
+    }
+  }
+
+  Future<void> signOut() async {
+    await logout();
   }
 }

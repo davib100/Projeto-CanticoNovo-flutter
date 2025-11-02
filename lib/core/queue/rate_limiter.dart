@@ -1,5 +1,6 @@
 // core/queue/rate_limiter.dart
 import 'dart:collection';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Rate Limiter usando Token Bucket Algorithm
 ///
@@ -188,3 +189,66 @@ class SlidingWindowRateLimiter {
     _requestTimestamps.clear();
   }
 }
+class KeyedRateLimiter {
+  final Map<String, List<DateTime>> _attempts = {};
+
+  /// Tenta adquirir permissão para uma chave específica.
+  Future<bool> tryAcquire(
+    String key, {
+    int maxAttempts = 5,
+    Duration window = const Duration(minutes: 15),
+  }) async {
+    final now = DateTime.now();
+    final attempts = _attempts[key] ?? [];
+
+    // Remover tentativas que já expiraram (fora da janela de tempo)
+    attempts.removeWhere((attempt) => now.difference(attempt) > window);
+
+    if (attempts.length >= maxAttempts) {
+      _attempts[key] = attempts;
+      return false; // Limite excedido
+    }
+
+    attempts.add(now);
+    _attempts[key] = attempts;
+    return true; // Permissão concedida
+  }
+
+  /// Registra uma tentativa falha para a chave,
+  /// contribuindo para o limite sem conceder permissão.
+  void recordFailure(String key) {
+    final attempts = _attempts[key] ?? [];
+    attempts.add(DateTime.now());
+    _attempts[key] = attempts;
+  }
+
+  /// Reseta o contador de tentativas para uma chave.
+  void reset(String key) {
+    _attempts.remove(key);
+  }
+
+  /// Calcula o tempo restante até que uma nova tentativa seja permitida.
+  Duration getRetryAfter(String key, {Duration window = const Duration(minutes: 15)}) {
+    final attempts = _attempts[key];
+    if (attempts == null || attempts.isEmpty) {
+      return Duration.zero;
+    }
+    
+    // Encontra a tentativa mais antiga dentro da janela atual
+    final now = DateTime.now();
+    final validAttempts = attempts.where((a) => now.difference(a) <= window).toList();
+
+    if (validAttempts.isEmpty) {
+        return Duration.zero;
+    }
+
+    final oldestAttempt = validAttempts.first;
+    final elapsed = now.difference(oldestAttempt);
+
+    return (window - elapsed).isNegative ? Duration.zero : window - elapsed;
+  }
+}
+
+/// Provider do Riverpod para disponibilizar uma instância única
+/// do KeyedRateLimiter na aplicação.
+final keyedRateLimiterProvider = Provider<KeyedRateLimiter>((ref) => KeyedRateLimiter());

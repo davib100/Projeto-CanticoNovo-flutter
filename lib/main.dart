@@ -34,6 +34,7 @@ import '../modules/quick_access/quickaccess_module.dart';
 import '../modules/search/search_module.dart';
 import '../modules/settings/settings_module.dart';
 import '../modules/karaoke/karaoke_module.dart';
+import '../modules/analytics/analytics_module.dart';
 
 // Config
 //import '../config/environment.dart';
@@ -246,6 +247,12 @@ Future<void> main() async {
           ),
           KaraokeModule(
             priority: ModulePriority.low,
+            lazy: true,
+          ),
+
+          // Módulo de background
+          AnalyticsModule(
+            priority: ModulePriority.background,
             lazy: true,
           ),
         ]);

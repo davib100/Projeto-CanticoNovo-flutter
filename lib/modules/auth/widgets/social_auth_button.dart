@@ -7,11 +7,11 @@ class SocialAuthButton extends StatelessWidget {
   final String label;
 
   const SocialAuthButton({
-    Key? key,
+    super.key,
     required this.onPressed,
     required this.icon,
     required this.label,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

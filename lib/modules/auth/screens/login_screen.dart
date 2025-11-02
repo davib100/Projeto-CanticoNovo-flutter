@@ -1,16 +1,16 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:myapp/shared/widgets/loading_overlay.dart';
-import 'package:myapp/shared/utils/validators.dart';
-import 'package:myapp/core/observability/logger.dart';
+import '../../../shared/widgets/loading_overlay.dart';
+import '../../../shared/utils/validators.dart';
+import '../../../core/observability/logger.dart';
 import '../widgets/auth_header.dart';
 import '../widgets/auth_text_field.dart';
 import '../widgets/social_auth_button.dart';
-import '../providers/auth_provider.dart';
+import '../providers/auth_provider.dart' hide loggerProvider;
 
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -22,7 +22,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
   
   bool _obscurePassword = true;
-  bool _rememberMe = false;
 
   @override
   void dispose() {
@@ -32,21 +31,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
+    final logger = ref.read(loggerProvider);
     if (!_formKey.currentState!.validate()) return;
 
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    final result = await ref.read(authStateProvider.notifier).login(
-      email: email,
-      password: password,
-      rememberMe: _rememberMe,
-    );
+    logger.info('Attempting to log in with email...', data: {'email': email});
+
+    final result = await ref.read(authStateProvider.notifier).login(email, password);
 
     if (!mounted) return;
 
     result.fold(
-      (error) {
+      (error, stackTrace) {
+        logger.error('Email login failed', error, stackTrace);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(error),
@@ -56,19 +55,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
       },
       (user) {
-        // Navegar para home após login bem-sucedido
+        logger.info('Email login successful', data: {'userId': user.uid});
         Navigator.of(context).pushReplacementNamed('/home');
       },
     );
   }
 
   Future<void> _handleGoogleLogin() async {
+    final logger = ref.read(loggerProvider);
+    logger.info('Attempting to log in with Google...');
+
     final result = await ref.read(authStateProvider.notifier).loginWithGoogle();
     
     if (!mounted) return;
 
     result.fold(
-      (error) {
+      (error, stackTrace) {
+        logger.error('Google login failed', error, stackTrace);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(error),
@@ -78,6 +81,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
       },
       (user) {
+        logger.info('Google login successful', data: {'userId': user.uid});
         Navigator.of(context).pushReplacementNamed('/home');
       },
     );
@@ -86,6 +90,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
+    final logger = ref.read(loggerProvider);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
@@ -191,6 +196,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         alignment: Alignment.centerLeft,
                         child: TextButton(
                           onPressed: () {
+                            logger.info('Navigating to reset password screen');
                             Navigator.of(context).pushNamed('/reset-password');
                           },
                           style: TextButton.styleFrom(
@@ -261,6 +267,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           TextButton(
                             onPressed: () {
+                              logger.info('Navigating to register screen');
                               Navigator.of(context).pushNamed('/register');
                             },
                             style: TextButton.styleFrom(

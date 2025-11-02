@@ -24,6 +24,11 @@ abstract class AuthRepository {
     required String email,
   });
 
+  Future<Either<String, void>> confirmResetPassword({
+    required String token,
+    required String newPassword,
+  });
+
   Future<Either<String, UserEntity>> checkSession();
 
   Future<void> logout();

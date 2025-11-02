@@ -1,5 +1,5 @@
-
 import 'package:equatable/equatable.dart';
+import '../models/user_model.dart';
 
 class UserEntity extends Equatable {
   final String id;
@@ -19,6 +19,10 @@ class UserEntity extends Equatable {
     required this.createdAt,
     this.lastLoginAt,
   });
+
+  factory UserEntity.fromJson(Map<String, dynamic> json) {
+    return UserModel.fromJson(json);
+  }
 
   @override
   List<Object?> get props => [

@@ -1,14 +1,14 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:myapp/shared/widgets/loading_overlay.dart';
-import 'package:myapp/shared/utils/validators.dart';
+import '../../../shared/widgets/loading_overlay.dart';
+import '../../../shared/utils/validators.dart';
 import '../widgets/auth_header.dart';
 import '../widgets/auth_text_field.dart';
 import '../providers/auth_provider.dart';
 
 class ResetPasswordScreen extends ConsumerStatefulWidget {
-  const ResetPasswordScreen({Key? key}) : super(key: key);
+  const ResetPasswordScreen({super.key});
 
   @override
   ConsumerState<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
@@ -31,7 +31,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
 
     final email = _emailController.text.trim();
 
-    final result = await ref.read(authStateProvider.notifier).resetPassword(email: email);
+    final result = await ref.read(authStateProvider.notifier).resetPassword(email);
 
     if (!mounted) return;
 
@@ -63,7 +63,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
   Future<void> _handleResendEmail() async {
     final email = _emailController.text.trim();
 
-    final result = await ref.read(authStateProvider.notifier).resetPassword(email: email);
+    final result = await ref.read(authStateProvider.notifier).resetPassword(email);
 
     if (!mounted) return;
 
@@ -183,9 +183,9 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                       ),
                     ),
                   )
-                : Row(
+                : const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
+                    children: [
                       Text(
                         'Enviar instruções',
                         style: TextStyle(
@@ -265,7 +265,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
           width: 80,
           height: 80,
           decoration: BoxDecoration(
-            color: Colors.green.withOpacity(0.1),
+            color: Colors.green.withAlpha(26),
             shape: BoxShape.circle,
           ),
           child: const Icon(
@@ -319,7 +319,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: isDark 
-                ? const Color(0xFFFBBF24).withOpacity(0.1) 
+                ? const Color(0x1AFBBF24) 
                 : const Color(0xFFFEF3C7),
             borderRadius: BorderRadius.circular(12),
           ),

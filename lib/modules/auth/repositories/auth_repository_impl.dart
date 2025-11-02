@@ -1,29 +1,26 @@
 import 'package:dartz/dartz.dart';
-//import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-//import 'package:sentry_flutter/sentry_flutter.dart';
 import '../../../core/observability/observability_service.dart';
-import '../../auth/datasource/auth_local_datasource.dart';
-import '../../auth/datasource/auth_remote_datasource.dart';
-import '../../auth/repositories/auth_repository.dart';
+import '../../../core/security/auth_service.dart';
+import '../datasource/auth_local_datasource.dart';
+import '../datasource/auth_remote_datasource.dart';
+import '../repositories/auth_repository.dart';
 import '../../../shared/entities/user_entity.dart';
 import '../../../shared/models/session_model.dart';
-import '../../../shared/models/user_model.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDataSource _remoteDataSource;
   final AuthLocalDataSource _localDataSource;
-  final GoogleSignIn _googleSignIn;
+  final AuthService _authService;
   final ObservabilityService _observabilityService;
 
   AuthRepositoryImpl({
     required AuthRemoteDataSource remoteDataSource,
     required AuthLocalDataSource localDataSource,
-    required GoogleSignIn googleSignIn,
+    required AuthService authService,
     required ObservabilityService observabilityService,
   })  : _remoteDataSource = remoteDataSource,
         _localDataSource = localDataSource,
-        _googleSignIn = googleSignIn,
+        _authService = authService,
         _observabilityService = observabilityService;
 
   @override
@@ -39,84 +36,59 @@ class AuthRepositoryImpl implements AuthRepository {
         rememberMe: rememberMe,
       );
 
-      final user = UserModel.fromJson(response['user']);
+      final user = UserEntity.fromJson(response['user']);
       final session = SessionModel.fromJson(response['session']);
 
-      await _localDataSource.saveUser(user.toEntity());
+      await _localDataSource.saveUser(user);
       await _localDataSource.saveSession(session);
 
-      return Right(user.toEntity());
+      return Right(user);
     } catch (e, stackTrace) {
       _observabilityService.captureException(
         e,
         stackTrace: stackTrace,
-        extra: {
-          'module': 'AuthRepository',
-        },
+        hint: 'Error during standard login',
+        extra: {'email': email},
       );
-
-      if (e.toString().contains('401')) {
-        return const Left('Email ou senha incorretos');
-      } else if (e.toString().contains('403')) {
-        return const Left(
-          'Outro dispositivo está conectado. Faça logout no outro dispositivo.',
-        );
-      } else if (e.toString().contains('network')) {
-        return const Left('Erro de conexão. Verifique sua internet.');
-      }
-
-      return const Left('Erro ao fazer login. Tente novamente.');
+      return Left(_handleAuthError(e));
     }
   }
 
   @override
   Future<Either<String, UserEntity>> loginWithGoogle() async {
     try {
-      final googleUser = await _googleSignIn.signIn();
-
-      if (googleUser == null) {
-        return const Left('Login cancelado');
-      }
-
-      final googleAuth = await googleUser.authentication;
-      final idToken = googleAuth.idToken;
-
+      final idToken = await _authService.signInWithGoogle();
       if (idToken == null) {
-        return const Left('Falha ao obter token do Google');
+        return const Left('Login com Google cancelado ou falhou.');
       }
 
-      final response = await _remoteDataSource.loginWithGoogle(
-        idToken: idToken,
-      );
+      final response = await _remoteDataSource.loginWithGoogle(idToken: idToken);
 
-      final user = UserModel.fromJson(response['user']);
+      final user = UserEntity.fromJson(response['user']);
       final session = SessionModel.fromJson(response['session']);
 
-      await _localDataSource.saveUser(user.toEntity());
+      await _localDataSource.saveUser(user);
       await _localDataSource.saveSession(session);
 
-      return Right(user.toEntity());
+      return Right(user);
     } catch (e, stackTrace) {
       _observabilityService.captureException(
         e,
         stackTrace: stackTrace,
-        extra: {
-          'module': 'AuthRepository',
-        },
+        hint: 'Error during Google login',
       );
-
-      return const Left('Erro ao fazer login com Google');
+      return const Left('Ocorreu um erro inesperado durante o login com Google.');
     }
   }
 
   @override
   Future<Either<String, UserEntity>> loginWithMicrosoft() async {
-    return const Left('Login com Microsoft não implementado');
+    return const Left('Login com Microsoft ainda não implementado.');
   }
 
   @override
   Future<Either<String, UserEntity>> loginWithFacebook() async {
-    return const Left('Login com Facebook não implementado');
+    return const Left('Login com Facebook ainda não implementado.');
   }
 
   @override
@@ -132,27 +104,21 @@ class AuthRepositoryImpl implements AuthRepository {
         password: password,
       );
 
-      final user = UserModel.fromJson(response['user']);
+      final user = UserEntity.fromJson(response['user']);
       final session = SessionModel.fromJson(response['session']);
 
-      await _localDataSource.saveUser(user.toEntity());
+      await _localDataSource.saveUser(user);
       await _localDataSource.saveSession(session);
 
-      return Right(user.toEntity());
+      return Right(user);
     } catch (e, stackTrace) {
       _observabilityService.captureException(
         e,
         stackTrace: stackTrace,
-        extra: {
-          'module': 'AuthRepository',
-        },
+        hint: 'Error during registration',
+        extra: {'email': email},
       );
-
-      if (e.toString().contains('409')) {
-        return const Left('Email já cadastrado');
-      }
-
-      return const Left('Erro ao criar conta. Tente novamente.');
+      return Left(_handleAuthError(e));
     }
   }
 
@@ -165,50 +131,57 @@ class AuthRepositoryImpl implements AuthRepository {
       _observabilityService.captureException(
         e,
         stackTrace: stackTrace,
-        extra: {
-          'module': 'AuthRepository',
-        },
+        hint: 'Error during password reset request',
+        extra: {'email': email},
       );
-
-      if (e.toString().contains('404')) {
-        return const Left('Email não encontrado');
-      }
-
-      return const Left('Erro ao enviar email. Tente novamente.');
+      return Left(_handleAuthError(e));
     }
   }
+  
+  @override
+  Future<Either<String, void>> confirmResetPassword({
+    required String token,
+    required String newPassword,
+  }) async {
+    try {
+      await _remoteDataSource.confirmResetPassword(
+        token: token,
+        newPassword: newPassword,
+      );
+      return const Right(null);
+    } catch (e, stackTrace) {
+      _observabilityService.captureException(
+        e,
+        stackTrace: stackTrace,
+        hint: 'Error confirming password reset',
+      );
+      return Left(_handleAuthError(e));
+    }
+  }
+
 
   @override
   Future<Either<String, UserEntity>> checkSession() async {
     try {
       final hasSession = await _localDataSource.hasValidSession();
-
       if (!hasSession) {
-        return const Left('Sessão inválida');
+        return const Left('Nenhuma sessão válida encontrada.');
       }
 
       final user = await _localDataSource.getUser();
-
       if (user == null) {
-        return const Left('Usuário não encontrado');
+        await _localDataSource.clearSession();
+        return const Left('Usuário da sessão não encontrado.');
       }
 
-      final token = await _localDataSource.getToken();
-      if (token == null) {
-        return const Left('Token não encontrado');
-      }
-
-      return Right(user.toEntity());
+      return Right(user);
     } catch (e, stackTrace) {
       _observabilityService.captureException(
         e,
         stackTrace: stackTrace,
-        extra: {
-          'module': 'AuthRepository',
-        },
+        hint: 'Error checking session',
       );
-
-      return const Left('Erro ao verificar sessão');
+      return const Left('Erro ao verificar a sessão.');
     }
   }
 
@@ -216,22 +189,19 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<void> logout() async {
     try {
       final session = await _localDataSource.getSession();
-
       if (session != null) {
-        await _remoteDataSource.logout(deviceId: session.deviceId);
+        _remoteDataSource.logout(deviceId: session.deviceId).ignore();
       }
-
+      
+      await _authService.signOut();
       await _localDataSource.clearSession();
-      await _googleSignIn.signOut();
+
     } catch (e, stackTrace) {
       _observabilityService.captureException(
         e,
         stackTrace: stackTrace,
-        extra: {
-          'module': 'AuthRepository',
-        },
+        hint: 'Error during logout',
       );
-
       await _localDataSource.clearSession();
     }
   }
@@ -245,12 +215,26 @@ class AuthRepositoryImpl implements AuthRepository {
       _observabilityService.captureException(
         e,
         stackTrace: stackTrace,
-        extra: {
-          'module': 'AuthRepository',
-        },
+        hint: 'Error revoking session',
+        extra: {'deviceId': deviceId},
       );
-
-      return const Left('Erro ao revogar sessão');
+      return const Left('Erro ao revogar a sessão do dispositivo.');
     }
+  }
+
+  String _handleAuthError(Object e) {
+    final errorString = e.toString().toLowerCase();
+    if (errorString.contains('401') || errorString.contains('invalid_credentials')) {
+      return 'Email ou senha incorretos.';
+    } else if (errorString.contains('403') || errorString.contains('permission_denied')) {
+      return 'Permissão negada. Outro dispositivo pode estar conectado.';
+    } else if (errorString.contains('409') || errorString.contains('already_exists')) {
+      return 'Este email já está cadastrado.';
+    } else if (errorString.contains('404') || errorString.contains('not_found')) {
+      return 'O recurso solicitado não foi encontrado.';
+    } else if (errorString.contains('network') || errorString.contains('unavailable')) {
+      return 'Erro de conexão. Verifique sua internet e tente novamente.';
+    }
+    return 'Ocorreu um erro inesperado. Tente novamente mais tarde.';
   }
 }

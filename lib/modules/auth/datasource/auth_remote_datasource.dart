@@ -77,6 +77,20 @@ class AuthRemoteDataSource {
       },
     );
   }
+  
+  Future<void> confirmResetPassword({
+    required String token,
+    required String newPassword,
+  }) async {
+    await _apiClient.post(
+      '/auth/confirm-reset-password',
+      {
+        'token': token,
+        'newPassword': newPassword,
+      },
+    );
+  }
+
 
   Future<Map<String, dynamic>> refreshToken({
     required String refreshToken,

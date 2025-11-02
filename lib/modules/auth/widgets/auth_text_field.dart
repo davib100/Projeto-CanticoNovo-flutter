@@ -16,7 +16,7 @@ class AuthTextField extends StatelessWidget {
   final bool autofocus;
 
   const AuthTextField({
-    Key? key,
+    super.key,
     required this.controller,
     required this.label,
     required this.hintText,
@@ -29,7 +29,7 @@ class AuthTextField extends StatelessWidget {
     this.onFieldSubmitted,
     this.onChanged,
     this.autofocus = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
